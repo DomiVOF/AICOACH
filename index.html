@@ -176,6 +176,22 @@ input:focus{border-color:var(--accent);}
 .msg.user{background:var(--accent);color:#0a0a0a;align-self:flex-end;border-radius:12px 12px 2px 12px;}
 .msg.ai{background:var(--card);color:var(--text);align-self:flex-start;border-radius:12px 12px 12px 2px;border:1px solid var(--border);}
 .msg.ai.loading{color:var(--muted);font-style:italic;}
+.msg.ai p{margin:4px 0;line-height:1.5;}
+.msg.ai p:first-child{margin-top:0;}
+.msg.ai p:last-child{margin-bottom:0;}
+.msg.ai .coach-h{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;color:var(--accent);margin:8px 0 4px;}
+.msg.ai .coach-h:first-child{margin-top:0;}
+.msg.ai ul,.msg.ai ol{padding-left:18px;margin:4px 0;}
+.msg.ai li{margin:2px 0;line-height:1.45;}
+.msg.ai li::marker{color:var(--accent);}
+.msg.ai strong{color:var(--white);font-weight:600;}
+.msg.ai em{color:var(--accent);font-style:normal;}
+.msg.ai code{background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);}
+.msg.ai pre{background:rgba(0,0,0,.3);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0;}
+.msg.ai pre code{background:none;padding:0;font-size:11px;color:var(--text);}
+.msg.ai .coach-chart{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;height:160px;position:relative;}
+.msg.ai .coach-chart-err{color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;text-align:center;padding:10px;}
+.msg.ai .coach-menu-applied{margin-top:8px;padding:6px 10px;background:rgba(200,241,53,.1);border-radius:6px;font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;letter-spacing:1px;}
 .coach-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
 .coach-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:14px;padding:10px 16px;outline:none;font-family:"DM Sans",sans-serif;}
 .coach-input:focus{border-color:var(--accent);}
@@ -1655,7 +1671,20 @@ function buildContext(){
     "TODAY ("+today+"): Meals "+s.mealsDone+"/"+MEALS.length+" ("+Math.round(s.mealPct)+"%), Calories "+s.kcalDone+"/"+s.kcalTarget+", Training "+s.trainDone+"/"+s.totalEx+" ("+Math.round(s.trainPct)+"%), Supps "+s.suppsDone+"/"+SUPPS.length+", Peptides "+s.pepsDone+"/"+PEPTIDES.length+".",
     "RECENT BODY LOG: "+logLines,
     weekLine,
-    "Be direct and data-driven. Short answers unless detail needed. You know the user's full plan."
+    "Be direct and data-driven. You know the user's full plan.",
+    "",
+    "OUTPUT FORMAT (strict):",
+    "- Keep replies under 90 words unless the user asks for depth.",
+    "- Open with a single-sentence verdict or status.",
+    "- Use '### Title' for at most 2 short section headers when a reply has more than one topic.",
+    "- Use '- ' bullets for lists of 2+ items; one idea per bullet, no nesting.",
+    "- Put every number the user should notice in **bold** (e.g. **1815 kcal**, **-450 adj**, **3/8 supps**).",
+    "- No emojis, no preambles like 'Great question', no trailing 'let me know if...'.",
+    "- When comparing values across days/weeks/macros or showing progress, include EXACTLY ONE chart block using this format:",
+    "  ```chart",
+    '  {"type":"bar","labels":["Mon","Tue","Wed"],"data":[85,72,90],"label":"Meal %"}',
+    "  ```",
+    "  Supported types: bar, line, doughnut. Max 7 labels. Put the chart near the relevant bullet."
   ];
   return lines.join("\n");
 }
@@ -1668,6 +1697,99 @@ function isMealSwapRequest(msg){
   return matchCount>=2;
 }
 
+// --- COACH REPLY RENDERING ---------------------------------------------------
+// Minimal safe Markdown renderer: escapes HTML first, then applies a tiny
+// whitelist of transforms (headers, bullets, bold, italic, inline code, fenced
+// code + chart blocks). Good enough for the Claude replies the coach produces.
+function mdToHtml(src){
+  var s=String(src==null?"":src).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  var blocks=[];
+  s=s.replace(/```(\w*)\n?([\s\S]*?)```/g,function(_,lang,body){
+    var i=blocks.length;
+    blocks.push({lang:(lang||"").toLowerCase(),body:body});
+    return "\u0000BLK"+i+"\u0000";
+  });
+  s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>");
+  s=s.replace(/\*\*([^*\n]+?)\*\*/g,"<strong>$1</strong>");
+  s=s.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g,"$1<em>$2</em>");
+  var lines=s.split("\n");
+  var out=[],inList=null;
+  function closeList(){if(inList){out.push("</"+inList+">");inList=null;}}
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i],m;
+    if(/^\s*$/.test(line)){closeList();continue;}
+    if((m=/^(#{1,4})\s+(.*)$/.exec(line))){closeList();out.push('<div class="coach-h">'+m[2]+'</div>');continue;}
+    if((m=/^\s*[-•]\s+(.*)$/.exec(line))){if(inList!=="ul"){closeList();out.push("<ul>");inList="ul";}out.push("<li>"+m[1]+"</li>");continue;}
+    if((m=/^\s*(\d+)\.\s+(.*)$/.exec(line))){if(inList!=="ol"){closeList();out.push("<ol>");inList="ol";}out.push("<li>"+m[2]+"</li>");continue;}
+    closeList();
+    out.push("<p>"+line+"</p>");
+  }
+  closeList();
+  var html=out.join("");
+  html=html.replace(/\u0000BLK(\d+)\u0000/g,function(_,idx){
+    var b=blocks[+idx];
+    if(b.lang==="chart"){
+      return '<div class="coach-chart" data-chart="'+encodeURIComponent(b.body)+'"></div>';
+    }
+    if(b.lang==="json"){return "";} // already consumed by meal-swap pipeline
+    var esc=b.body.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    return "<pre><code>"+esc+"</code></pre>";
+  });
+  return html;
+}
+function renderCoachChart(container,spec){
+  if(typeof Chart==="undefined")return;
+  var canvas=document.createElement("canvas");
+  container.innerHTML="";
+  container.appendChild(canvas);
+  var type=spec.type==="line"?"line":spec.type==="doughnut"?"doughnut":"bar";
+  var palette=["#c8f135","#7eb8f7","#ffb347","#ff5c35","#b464ff","#e8e8e8","#555"];
+  var labels=Array.isArray(spec.labels)?spec.labels.slice(0,7):[];
+  var data=Array.isArray(spec.data)?spec.data.slice(0,7):[];
+  new Chart(canvas.getContext("2d"),{
+    type:type,
+    data:{
+      labels:labels,
+      datasets:[{
+        label:spec.label||"",
+        data:data,
+        backgroundColor:type==="doughnut"?palette:(type==="line"?"rgba(200,241,53,.15)":"rgba(200,241,53,.6)"),
+        borderColor:"#c8f135",
+        borderWidth:1.5,
+        tension:0.3,
+        pointRadius:type==="line"?3:0,
+        pointBackgroundColor:"#c8f135",
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:type==="doughnut",labels:{color:"#e8e8e8",font:{size:10,family:"DM Mono"}}}},
+      scales:type==="doughnut"?{}:{
+        x:{ticks:{color:"#777",font:{size:10,family:"DM Mono"}},grid:{color:"rgba(255,255,255,.05)"}},
+        y:{ticks:{color:"#777",font:{size:10,family:"DM Mono"}},grid:{color:"rgba(255,255,255,.05)"},beginAtZero:true}
+      }
+    }
+  });
+}
+function renderCoachReply(elId,text,mealSwapApplied,targetDate){
+  var el=document.getElementById(elId);
+  if(!el)return;
+  el.classList.remove("loading");
+  var html=mdToHtml(text||"");
+  if(mealSwapApplied){
+    html+='<div class="coach-menu-applied">MENU UPDATED - check Food tab ('+(targetDate||"")+')</div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll(".coach-chart").forEach(function(div){
+    try{
+      var spec=JSON.parse(decodeURIComponent(div.getAttribute("data-chart")||""));
+      renderCoachChart(div,spec);
+    }catch(e){ div.innerHTML='<div class="coach-chart-err">[chart data error]</div>'; }
+  });
+  var box=document.getElementById("coach-messages");
+  if(box)box.scrollTop=box.scrollHeight;
+}
+
 async function sendCoach(){
   var input=document.getElementById("coach-input");
   var msg=input?input.value.trim():"";
@@ -1676,7 +1798,7 @@ async function sendCoach(){
 
   var messagesEl=document.getElementById("coach-messages");
   coachHistory.push({role:"user",content:msg});
-  messagesEl.innerHTML+="<div class=\"msg user\">"+msg+"<\/div>";
+  messagesEl.innerHTML+="<div class=\"msg user\">"+escHtml(msg)+"<\/div>";
   var loadId="load-"+Date.now();
   messagesEl.innerHTML+="<div class=\"msg ai loading\" id=\""+loadId+"\">Thinking...</div>";
   messagesEl.scrollTop=messagesEl.scrollHeight;
@@ -1719,20 +1841,19 @@ async function sendCoach(){
         var applied=parseMealSwap(jsonMatch[1],targetDate);
         var cleanReply=reply.replace(/```json[\s\S]*?```/,"").trim();
         if(applied){
-          cleanReply+=" Menu updated for "+targetDate+".";
-          document.getElementById(loadId).innerHTML=cleanReply+"<div style=\"margin-top:8px;padding:6px 10px;background:rgba(200,241,53,.1);border-radius:6px;font-size:11px;color:#c8f135;font-family:DM Mono,monospace;\">MENU UPDATED - check Food tab<\/div>";
+          renderCoachReply(loadId, cleanReply, true, targetDate);
         } else {
-          document.getElementById(loadId).textContent=cleanReply;
+          renderCoachReply(loadId, cleanReply);
         }
       } else {
-        document.getElementById(loadId).textContent=reply;
+        renderCoachReply(loadId, reply);
       }
     } else {
-      document.getElementById(loadId).textContent=reply;
+      renderCoachReply(loadId, reply);
     }
-    document.getElementById(loadId).classList.remove("loading");
   }catch(e){
-    document.getElementById(loadId).textContent="Connection error. Try again.";
+    var el=document.getElementById(loadId);
+    if(el){el.textContent="Connection error. Try again.";el.classList.remove("loading");}
   }
   messagesEl.scrollTop=messagesEl.scrollHeight;
 }
