@@ -246,6 +246,48 @@ input:focus{border-color:var(--accent);}
 .diff-over{color:#ff5c35 !important;font-weight:700;}
 .diff-under{color:#ffb347 !important;font-weight:700;}
 .diff-ok{color:#c8f135 !important;}
+
+/* AUTH / ONBOARDING -------------------------------------------------------- */
+body.auth-mode #app, body.auth-mode nav, body.auth-mode .coach-fab, body.auth-mode .coach-panel, body.auth-mode .coach-overlay, body.auth-mode #main-header{display:none !important;}
+body.auth-mode{overflow:auto;}
+.auth-screen{position:fixed;inset:0;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:500;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+.auth-inner{max-width:440px;margin:0 auto;padding:36px 20px 40px;}
+.auth-inner.onb-inner{padding-bottom:60px;}
+.auth-logo{width:72px;height:72px;margin:0 auto 14px;}
+.auth-logo svg{width:100%;height:100%;display:block;}
+.auth-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--white);text-align:center;}
+.auth-sub{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;text-align:center;margin-bottom:28px;}
+.auth-section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:18px 0 10px;}
+.auth-profiles{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.auth-profile{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;transition:border-color .15s,background .15s;}
+.auth-profile:hover,.auth-profile:active{border-color:var(--accent);background:rgba(200,241,53,.04);}
+.auth-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#0a0a0a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;flex-shrink:0;letter-spacing:1px;}
+.auth-profile-name{flex:1;}
+.auth-lock{font-size:12px;color:var(--muted);}
+.auth-pw-prompt{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px;}
+.auth-pw-row{display:flex;gap:8px;margin-top:6px;align-items:center;}
+.auth-pw-row input{flex:1;}
+.auth-optional{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:300;}
+.auth-err{color:var(--red);font-size:12px;margin-top:8px;min-height:16px;}
+.auth-note{font-size:11px;color:var(--muted);text-align:center;margin-top:28px;line-height:1.5;}
+.auth-link{background:none;border:none;color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:8px 0;margin-top:6px;}
+.auth-link.danger-link{color:var(--muted);display:block;width:100%;text-align:center;margin-top:14px;}
+
+/* onboarding items */
+.phase-row{display:flex;gap:6px;margin-bottom:14px;}
+.phase-pill{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--muted);cursor:pointer;}
+.phase-pill.active{background:var(--accent);color:#0a0a0a;border-color:var(--accent);}
+.onb-item{display:grid;grid-template-columns:1fr 1fr auto auto;gap:6px;align-items:center;margin-bottom:8px;}
+.onb-item input,.onb-item select{background:#1e1e1e;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:9px 10px;outline:none;font-family:'DM Sans',sans-serif;min-width:0;}
+.onb-item input:focus,.onb-item select:focus{border-color:var(--accent);}
+.onb-item select{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;}
+.onb-del{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);width:32px;height:34px;font-size:18px;line-height:1;cursor:pointer;}
+.onb-del:hover{color:var(--red);border-color:var(--red);}
+
+/* header logout button */
+.header-logout{position:absolute;top:38px;right:14px;background:transparent;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s;}
+.header-logout:hover,.header-logout:active{color:var(--accent);border-color:var(--accent);}
+.header-logout svg{width:15px;height:15px;}
 </style>
 </head>
 <body>
@@ -291,9 +333,7 @@ input:focus{border-color:var(--accent);}
     <span class="coach-title">AI HEALTH COACH</span>
     <button class="coach-close" onclick="closeCoach()">✕</button>
   </div>
-  <div class="coach-messages" id="coach-messages">
-    <div class="msg ai">Hey Aaron 👋 I know your full plan — meals, training, peptides, body metrics. Ask me anything about your progress, adjustments, or how you feel today.</div>
-  </div>
+  <div class="coach-messages" id="coach-messages"></div>
   <div class="coach-input-row">
     <input class="coach-input" id="coach-input" type="text" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoach()">
     <button class="coach-send" onclick="sendCoach()">
@@ -312,7 +352,7 @@ const MEALS=[
   {id:"m5",time:"20:00",name:"Dinner",kcal:620,items:[{n:"Rundergehakt",q:"300g"},{n:"Roomboter",q:"15g"},{n:"Whole eggs",q:"4 eggs  - 240g"},{n:"Avocado",q:"1/2  - ~80g"},{n:"Seasonal fruit",q:"150g"},{n:"Sea salt",q:"2g"}]},
   {id:"m6",time:"22:00",name:"Pre-Sleep",kcal:95,items:[{n:"Cottage cheese",q:"100g"},{n:"Mixed berries",q:"60g"}]},
 ];
-const SUPPS=[
+let SUPPS=[
   {id:"s1",name:"Vitamin D3",dose:"5,000 IU",tag:"Morning",tc:"tag-morning"},
   {id:"s2",name:"Vitamin K2",dose:"200mcg",tag:"Morning",tc:"tag-morning"},
   {id:"s3",name:"Omega-3",dose:"3g EPA/DHA",tag:"Morning",tc:"tag-morning"},
@@ -322,7 +362,7 @@ const SUPPS=[
   {id:"s7",name:"Magnesium",dose:"400mg glycinate",tag:"Bedtime",tc:"tag-bed"},
   {id:"s8",name:"Zinc",dose:"25mg",tag:"Bedtime",tc:"tag-bed"},
 ];
-const PEPTIDES=[
+let PEPTIDES=[
   {id:"p1",name:"BPC-157",dose:"250-500mcg SubQ",tag:"Morning",tc:"tag-morning"},
   {id:"p2",name:"GHK-Cu",dose:"1-2mg SubQ",tag:"Morning",tc:"tag-morning"},
   {id:"p3",name:"NAD+",dose:"100-300mg",tag:"Morning",tc:"tag-morning"},
@@ -416,9 +456,51 @@ const TRAINING={
   ]},
 };
 
+// --- AUTH & PROFILES ---------------------------------------------------------
+// NOTE: device-local profiles, NOT secure authentication. Everything lives in
+// this browser's localStorage. Use it to keep household profiles separate, not
+// to protect anything sensitive.
+const ACCOUNTS_KEY="blueprint_accounts";
+const SESSION_KEY="blueprint_session";
+function hashPw(pw,salt){
+  const s=salt+"|"+(pw||"");
+  let h1=0x811c9dc5>>>0,h2=0xdeadbeef>>>0;
+  for(let i=0;i<s.length;i++){
+    const c=s.charCodeAt(i);
+    h1=Math.imul(h1^c,0x01000193);
+    h2=Math.imul(h2^c,0x85ebca6b);
+  }
+  return(h1>>>0).toString(16).padStart(8,"0")+(h2>>>0).toString(16).padStart(8,"0");
+}
+function loadAccounts(){try{return JSON.parse(localStorage.getItem(ACCOUNTS_KEY))||[];}catch{return[];}}
+function saveAccounts(a){localStorage.setItem(ACCOUNTS_KEY,JSON.stringify(a));}
+function getSession(){return localStorage.getItem(SESSION_KEY);}
+function setSession(id){if(id)localStorage.setItem(SESSION_KEY,id);else localStorage.removeItem(SESSION_KEY);}
+function currentUserId(){return getSession();}
+function currentAccount(){const id=currentUserId();if(!id)return null;return loadAccounts().find(a=>a.id===id)||null;}
+function createAccount(displayName,password){
+  const accounts=loadAccounts();
+  const name=(displayName||"").trim();
+  if(!name)throw new Error("Name is required");
+  const handle=name.toLowerCase();
+  if(accounts.some(a=>a.handle===handle))throw new Error("That name is already taken on this device");
+  const id="u_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const salt=Math.random().toString(36).slice(2,10);
+  const acc={id,handle,name,salt,passHash:hashPw(password||"",salt),hasPassword:!!(password&&password.length),createdAt:new Date().toISOString()};
+  accounts.push(acc);
+  saveAccounts(accounts);
+  return acc;
+}
+function authenticate(handle,password){
+  const a=loadAccounts().find(x=>x.handle===(handle||"").trim().toLowerCase());
+  if(!a)return null;
+  if(a.hasPassword&&hashPw(password||"",a.salt)!==a.passHash)return null;
+  return a;
+}
+function logout(){setSession(null);location.reload();}
+
 // --- STATE --------------------------------------------------------------------
-const STORE_KEY="fitblueprint_v2";
-var viewDate="";
+function storeKey(){return"fitblueprint_v2_"+(currentUserId()||"anon");}
 function todayKey(){return new Date().toISOString().slice(0,10);}
 function getDOW(){const d=new Date().getDay();return DAYS[d===0?6:d-1];}
 function emptyDay(){
@@ -429,7 +511,10 @@ function emptyDay(){
   return{meals,supps,peptides,training};
 }
 function loadStore(){
-  try{const r=localStorage.getItem(STORE_KEY);return r?JSON.parse(r):null;}catch{return null;}
+  try{const r=localStorage.getItem(storeKey());return r?JSON.parse(r):null;}catch{return null;}
+}
+function saveStore(){
+  try{localStorage.setItem(storeKey(),JSON.stringify(STATE));}catch{}
 }
 function checkWeeklyReset(){
   const lastReset=STATE.lastWeeklyReset||"";
@@ -441,31 +526,36 @@ function checkWeeklyReset(){
     saveStore();
   }
 }
-
-function saveStore(){
-  try{localStorage.setItem(STORE_KEY,JSON.stringify(STATE));}catch{}
+function createDefaultState(){
+  return{
+    days:{},bodyLog:[],
+    currentWeight:70,currentBF:20,
+    startWeight:70,startBF:20,
+    startDate:todayKey(),phase:"cut",
+    config:null,
+  };
 }
-let STATE=loadStore()||{
-  days:{},bodyLog:[],
-  currentWeight:70,currentBF:20,
-  startWeight:70,startBF:20,
-  startDate:todayKey(),phase:"cut",
-};
-const today=todayKey();
-const DOW=getDOW();
-var _td=todayKey();
-if(!STATE.days[_td]){STATE.days[_td]=emptyDay();saveStore();}
-if(!viewDate)viewDate=_td;
-checkWeeklyReset();
-runWeeklyAutoAdjust();
-clearOldOverrides();
+function applyUserConfig(){
+  const c=STATE.config;if(!c)return;
+  if(Array.isArray(c.supps)&&c.supps.length)SUPPS=c.supps;
+  if(Array.isArray(c.peptides)&&c.peptides.length)PEPTIDES=c.peptides;
+  // backfill checkbox slots for items added after initial onboarding
+  Object.values(STATE.days||{}).forEach(function(d){
+    if(d&&d.supps)SUPPS.forEach(function(s){if(!(s.id in d.supps))d.supps[s.id]=false;});
+    if(d&&d.peptides)PEPTIDES.forEach(function(p){if(!(p.id in d.peptides))d.peptides[p.id]=false;});
+  });
+}
 
+// hoisted module-level state (populated by bootApp())
+let STATE=null;
+let today=todayKey();
+let DOW=getDOW();
+let viewDate=today;
 let currentTab="today";
-viewDate=todayKey();
 var graphMetric="weight"; // weight | bf | muscle
 var nutritionMetric="kcal";
 var coachHistory=[];
-var weeklyDismissed=STATE.weeklyDismissed||false;
+var weeklyDismissed=false;
 
 // -- WEEKLY ANALYSIS ------------------------------------------------------
 function getLastWeekStats(){
@@ -1556,16 +1646,16 @@ function buildContext(){
   if(!logLines)logLines="No entries yet";
   var weekLine=weekStats?"LAST WEEK: "+Math.round(weekStats.avgMeal*100)+"% meal compliance, "+Math.round(weekStats.avgTrain*100)+"% training compliance":"";
   var lines=[
-    "You are a professional health and fitness coach for Aaron, a 32-year-old Belgian entrepreneur, 178cm.",
+    "You are a professional health and fitness coach for "+(STATE.config&&STATE.config.displayName||"the user")+".",
     "Current: "+STATE.currentWeight+"kg at "+STATE.currentBF+"% body fat ("+s.muscleMass+"kg muscle mass).",
-    "Phase: Cut - target 67kg / 13.5% BF. Week "+(wks+1)+" of cut.",
-    "Calories: 2900 kcal/day target. Training: 6 days/week AM structural + PM Push/Pull/Legs.",
-    "Peptides: BPC-157, GHK-Cu, NAD+, SS-31, Pinealon, Epitalon, Sermorelin bedtime.",
-    "Supplements: D3/K2, Omega-3, Vitamin C, EAAs, Creatine, Magnesium glycinate, Zinc.",
-    "TODAY ("+today+"): Meals "+s.mealsDone+"/6 ("+Math.round(s.mealPct)+"%), Calories "+s.kcalDone+"/"+s.kcalTarget+", Training "+s.trainDone+"/"+s.totalEx+" ("+Math.round(s.trainPct)+"%), Supps "+s.suppsDone+"/8, Peptides "+s.pepsDone+"/7.",
+    "Phase: "+(STATE.phase||"cut")+" - target "+(STATE.config&&STATE.config.targetWeight||67)+"kg / "+(STATE.config&&STATE.config.targetBF||13.5)+"% BF. Week "+(wks+1)+".",
+    "Calories: "+(STATE.weeklyKcalTarget||2900)+" kcal/day target. Training: 6 days/week AM structural + PM Push/Pull/Legs.",
+    "Peptides: "+PEPTIDES.map(function(p){return p.name;}).join(", ")+".",
+    "Supplements: "+SUPPS.map(function(s){return s.name;}).join(", ")+".",
+    "TODAY ("+today+"): Meals "+s.mealsDone+"/"+MEALS.length+" ("+Math.round(s.mealPct)+"%), Calories "+s.kcalDone+"/"+s.kcalTarget+", Training "+s.trainDone+"/"+s.totalEx+" ("+Math.round(s.trainPct)+"%), Supps "+s.suppsDone+"/"+SUPPS.length+", Peptides "+s.pepsDone+"/"+PEPTIDES.length+".",
     "RECENT BODY LOG: "+logLines,
     weekLine,
-    "Be direct and data-driven. Short answers unless detail needed. You know Aaron's full plan."
+    "Be direct and data-driven. Short answers unless detail needed. You know the user's full plan."
   ];
   return lines.join("\n");
 }
@@ -1986,18 +2076,268 @@ function renderMissedTab(){
   document.getElementById("app").innerHTML="<div class=\"section\">"+renderMissedTracker()+"</div>";
 }
 
-// --- INIT ---------------------------------------------------------------------
-// Inject sticky header into body (outside #app so it doesn't get wiped on render)
-document.body.insertAdjacentHTML("afterbegin",`
-<div class="header" id="main-header">
-  <div class="header-label" id="hdr-label">PERFORMANCE BLUEPRINT</div>
-  <div class="header-title" id="hdr-title">Loading...</div>
-  <div class="header-sub" id="hdr-sub"></div>
-</div>`);
+// --- AUTH UI ------------------------------------------------------------------
+function escHtml(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function escJs(s){return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/</g,"\\x3c");}
 
-render();
-// init chart after DOM painted
-setTimeout(initBodyChart, 100);
+function buildAuthScreen(){
+  const accounts=loadAccounts();
+  const hasAccounts=accounts.length>0;
+  let profileCards="";
+  if(hasAccounts){
+    profileCards='<div class="auth-section-label">Your profiles</div>';
+    profileCards+='<div class="auth-profiles">';
+    accounts.forEach(function(a){
+      const letter=a.name.charAt(0).toUpperCase();
+      profileCards+='<button class="auth-profile" onclick="authSelectProfile(\''+escJs(a.handle)+'\')">'
+        +'<span class="auth-avatar">'+escHtml(letter)+'</span>'
+        +'<span class="auth-profile-name">'+escHtml(a.name)+'</span>'
+        +(a.hasPassword?'<span class="auth-lock">🔒</span>':'')
+        +'</button>';
+    });
+    profileCards+='</div>';
+  }
+  return '<div id="auth-screen" class="auth-screen">'
+    +'<div class="auth-inner">'
+      +'<div class="auth-logo"><svg viewBox="0 0 180 180"><rect width="180" height="180" rx="40" fill="#0a0a0a"/><path fill="#c8f135" d="M104 22 52 100h30l-14 58 62-86h-32l14-50z"/></svg></div>'
+      +'<div class="auth-title">BLUEPRINT</div>'
+      +'<div class="auth-sub">Personalized performance tracking</div>'
+      +profileCards
+      +'<div id="auth-pw-box"></div>'
+      +'<div id="auth-signup">'
+        +(hasAccounts?'<div class="auth-section-label">Add another profile</div>':'<div class="auth-section-label">Create your profile</div>')
+        +'<div class="input-group"><div class="input-label">Display name</div><input id="au-name" type="text" placeholder="Your name" autocomplete="off"></div>'
+        +'<div class="input-group"><div class="input-label">Password <span class="auth-optional">(optional, device-only)</span></div><input id="au-pw" type="password" placeholder="Leave blank to skip" autocomplete="new-password"></div>'
+        +'<button class="btn" onclick="authCreateProfile()">Create profile</button>'
+        +'<div id="au-err" class="auth-err"></div>'
+      +'</div>'
+      +'<div class="auth-note">Profiles live in this browser\'s storage. Share the URL with a friend and they can create their own profile on their device.</div>'
+    +'</div>'
+  +'</div>';
+}
+function authSelectProfile(handle){
+  const a=loadAccounts().find(x=>x.handle===handle);
+  if(!a)return;
+  const box=document.getElementById("auth-pw-box");
+  if(!a.hasPassword){ loginAs(a); return; }
+  const jh=escJs(handle);
+  box.innerHTML='<div class="auth-pw-prompt">'
+    +'<div class="input-label">Password for '+escHtml(a.name)+'</div>'
+    +'<div class="auth-pw-row"><input id="au-login-pw" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')authSubmitLogin(\''+jh+'\')">'
+    +'<button class="btn" style="width:auto;padding:12px 18px;margin-top:0" onclick="authSubmitLogin(\''+jh+'\')">Go</button></div>'
+    +'<div id="au-login-err" class="auth-err"></div>'
+    +'</div>';
+  setTimeout(function(){const i=document.getElementById("au-login-pw");if(i)i.focus();},50);
+}
+function authSubmitLogin(handle){
+  const pw=(document.getElementById("au-login-pw")||{}).value||"";
+  const a=authenticate(handle,pw);
+  if(!a){document.getElementById("au-login-err").textContent="Wrong password.";return;}
+  loginAs(a);
+}
+function authCreateProfile(){
+  const name=(document.getElementById("au-name")||{}).value||"";
+  const pw=(document.getElementById("au-pw")||{}).value||"";
+  try{
+    const a=createAccount(name,pw);
+    loginAs(a);
+  }catch(e){ document.getElementById("au-err").textContent=e.message; }
+}
+function loginAs(acc){
+  setSession(acc.id);
+  // One-time legacy migration: if this is the very first account ever created on this
+  // device and there's data in the old global key, move it into this account.
+  const accounts=loadAccounts();
+  if(accounts.length===1){
+    const legacy=localStorage.getItem("fitblueprint_v2");
+    if(legacy&&!localStorage.getItem(storeKey())){
+      localStorage.setItem(storeKey(),legacy);
+    }
+  }
+  bootApp();
+}
+
+// --- ONBOARDING ---------------------------------------------------------------
+const SUPP_TAGS=[
+  {v:"Morning",tc:"tag-morning"},
+  {v:"Pre/Intra",tc:"tag-pre"},
+  {v:"Post-WO",tc:"tag-post"},
+  {v:"Evening",tc:"tag-eve"},
+  {v:"Bedtime",tc:"tag-bed"},
+];
+function tagClassFor(v){const t=SUPP_TAGS.find(function(t){return t.v===v;});return t?t.tc:"tag-morning";}
+let onbSupps=[], onbPeps=[], onbPhase="cut";
+function buildOnboarding(){
+  const acc=currentAccount();
+  const name=acc?acc.name:"";
+  // seed from existing config if present, else defaults
+  const c=STATE&&STATE.config||{};
+  onbPhase=c.phase||STATE.phase||"cut";
+  onbSupps=(Array.isArray(c.supps)&&c.supps.length?c.supps:SUPPS).map(function(s){return Object.assign({},s);});
+  onbPeps=(Array.isArray(c.peptides)&&c.peptides.length?c.peptides:PEPTIDES).map(function(p){return Object.assign({},p);});
+  return '<div id="onboard-screen" class="auth-screen">'
+    +'<div class="auth-inner onb-inner">'
+      +'<div class="auth-title">CONFIRM YOUR PLAN</div>'
+      +'<div class="auth-sub">Welcome '+escHtml(name)+'. Set your goals, vitamins and peptides.</div>'
+      +'<div class="card"><div class="card-label">GOAL</div>'
+        +'<div class="phase-row">'
+          +['cut','maintain','bulk'].map(function(p){return '<button class="phase-pill'+(onbPhase===p?' active':'')+'" data-phase="'+p+'" onclick="onbSetPhase(\''+p+'\')">'+p.toUpperCase()+'</button>';}).join('')
+        +'</div>'
+        +'<div class="input-row">'
+          +'<div class="input-group"><div class="input-label">Target weight (kg)</div><input type="number" id="onb-tw" step="0.1" value="'+(c.targetWeight!=null?c.targetWeight:67)+'"></div>'
+          +'<div class="input-group"><div class="input-label">Target BF (%)</div><input type="number" id="onb-tbf" step="0.1" value="'+(c.targetBF!=null?c.targetBF:13.5)+'"></div>'
+        +'</div>'
+        +'<div class="input-row">'
+          +'<div class="input-group"><div class="input-label">Current weight (kg)</div><input type="number" id="onb-cw" step="0.1" value="'+(STATE.currentWeight||70)+'"></div>'
+          +'<div class="input-group"><div class="input-label">Current BF (%)</div><input type="number" id="onb-cbf" step="0.1" value="'+(STATE.currentBF||20)+'"></div>'
+        +'</div>'
+        +'<div class="input-group"><div class="input-label">Daily kcal target</div><input type="number" id="onb-kcal" value="'+(STATE.weeklyKcalTarget||2900)+'"></div>'
+      +'</div>'
+      +'<div class="card"><div class="card-label">VITAMINS / SUPPLEMENTS</div>'
+        +'<div id="onb-supps"></div>'
+        +'<button class="auth-link" onclick="onbAddItem(\'supps\')">+ Add supplement</button>'
+      +'</div>'
+      +'<div class="card"><div class="card-label">PEPTIDES</div>'
+        +'<div id="onb-peps"></div>'
+        +'<button class="auth-link" onclick="onbAddItem(\'peps\')">+ Add peptide</button>'
+      +'</div>'
+      +'<button class="btn" onclick="finishOnboarding()">Confirm & continue</button>'
+      +'<button class="auth-link danger-link" onclick="logout()">Sign out</button>'
+    +'</div>'
+  +'</div>';
+}
+function onbSetPhase(p){
+  onbPhase=p;
+  document.querySelectorAll(".phase-pill").forEach(function(el){el.classList.toggle("active",el.getAttribute("data-phase")===p);});
+}
+function onbRenderItems(){
+  const rowHtml=function(arr,prefix){
+    return arr.map(function(it,i){
+      return '<div class="onb-item">'
+        +'<input class="onb-item-name" placeholder="Name" value="'+escHtml(it.name||"")+'" oninput="onbUpdateField(\''+prefix+'\','+i+',\'name\',this.value)">'
+        +'<input class="onb-item-dose" placeholder="Dose" value="'+escHtml(it.dose||"")+'" oninput="onbUpdateField(\''+prefix+'\','+i+',\'dose\',this.value)">'
+        +'<select class="onb-item-tag" onchange="onbUpdateField(\''+prefix+'\','+i+',\'tag\',this.value)">'
+          +SUPP_TAGS.map(function(t){return '<option value="'+t.v+'"'+(it.tag===t.v?' selected':'')+'>'+t.v+'</option>';}).join('')
+        +'</select>'
+        +'<button class="onb-del" title="Remove" onclick="onbRemoveItem(\''+prefix+'\','+i+')">×</button>'
+      +'</div>';
+    }).join('');
+  };
+  const s=document.getElementById("onb-supps");
+  const p=document.getElementById("onb-peps");
+  if(s)s.innerHTML=rowHtml(onbSupps,"supps");
+  if(p)p.innerHTML=rowHtml(onbPeps,"peps");
+}
+function onbUpdateField(prefix,i,field,val){
+  const arr=prefix==="supps"?onbSupps:onbPeps;
+  if(!arr[i])return;
+  arr[i][field]=val;
+  if(field==="tag")arr[i].tc=tagClassFor(val);
+}
+function onbAddItem(prefix){
+  const arr=prefix==="supps"?onbSupps:onbPeps;
+  const id=(prefix==="supps"?"s":"p")+"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  arr.push({id:id,name:"",dose:"",tag:"Morning",tc:"tag-morning"});
+  onbRenderItems();
+}
+function onbRemoveItem(prefix,i){
+  const arr=prefix==="supps"?onbSupps:onbPeps;
+  arr.splice(i,1);
+  onbRenderItems();
+}
+function finishOnboarding(){
+  const cw=parseFloat(document.getElementById("onb-cw").value)||STATE.currentWeight||70;
+  const cbf=parseFloat(document.getElementById("onb-cbf").value)||STATE.currentBF||20;
+  const tw=parseFloat(document.getElementById("onb-tw").value)||67;
+  const tbf=parseFloat(document.getElementById("onb-tbf").value)||13.5;
+  const kcal=parseInt(document.getElementById("onb-kcal").value,10)||2900;
+  const cleanSupps=onbSupps.filter(function(s){return (s.name||"").trim();}).map(function(s){return{id:s.id,name:s.name.trim(),dose:(s.dose||"").trim(),tag:s.tag||"Morning",tc:tagClassFor(s.tag||"Morning")};});
+  const cleanPeps=onbPeps.filter(function(p){return (p.name||"").trim();}).map(function(p){return{id:p.id,name:p.name.trim(),dose:(p.dose||"").trim(),tag:p.tag||"Morning",tc:tagClassFor(p.tag||"Morning")};});
+  const acc=currentAccount();
+  STATE.config={
+    displayName:acc?acc.name:"",
+    phase:onbPhase,
+    targetWeight:tw, targetBF:tbf,
+    weeklyKcalTarget:kcal,
+    supps:cleanSupps,
+    peptides:cleanPeps,
+    onboarded:true,
+    onboardedAt:new Date().toISOString(),
+  };
+  STATE.currentWeight=cw;
+  STATE.currentBF=cbf;
+  // only overwrite the starting baseline on first onboarding
+  if(!STATE.startWeight || STATE.startWeight===70)STATE.startWeight=cw;
+  if(!STATE.startBF || STATE.startBF===20)STATE.startBF=cbf;
+  if(!STATE.startDate)STATE.startDate=todayKey();
+  STATE.phase=onbPhase;
+  STATE.weeklyKcalTarget=kcal;
+  saveStore();
+  bootApp();
+}
+
+// --- SCREEN RENDERING ---------------------------------------------------------
+function mountScreen(html){
+  document.body.classList.add("auth-mode");
+  const host=document.getElementById("auth-root")||(function(){
+    const d=document.createElement("div"); d.id="auth-root"; document.body.appendChild(d); return d;
+  })();
+  host.innerHTML=html;
+}
+function unmountScreen(){
+  document.body.classList.remove("auth-mode");
+  const host=document.getElementById("auth-root");
+  if(host)host.remove();
+}
+
+function ensureMainHeader(){
+  if(document.getElementById("main-header"))return;
+  document.body.insertAdjacentHTML("afterbegin",'<div class="header" id="main-header">'
+    +'<div class="header-label" id="hdr-label">PERFORMANCE BLUEPRINT</div>'
+    +'<div class="header-title" id="hdr-title">Loading...</div>'
+    +'<div class="header-sub" id="hdr-sub"></div>'
+    +'<button class="header-logout" onclick="logout()" title="Switch profile / sign out" aria-label="Sign out">'
+      +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
+    +'</button>'
+  +'</div>');
+}
+
+function primeCoachWelcome(){
+  const box=document.getElementById("coach-messages");
+  if(!box||box.childElementCount>0)return;
+  const name=(STATE&&STATE.config&&STATE.config.displayName)||"there";
+  const msg=document.createElement("div");
+  msg.className="msg ai";
+  msg.textContent="Hey "+name+" 👋 I know your full plan — meals, training, peptides, body metrics. Ask me anything about your progress, adjustments, or how you feel today.";
+  box.appendChild(msg);
+}
+
+// --- BOOT ---------------------------------------------------------------------
+function bootApp(){
+  if(!currentAccount()){ mountScreen(buildAuthScreen()); return; }
+  STATE=loadStore()||createDefaultState();
+  if(!STATE.config||!STATE.config.onboarded){
+    mountScreen(buildOnboarding());
+    onbRenderItems();
+    return;
+  }
+  applyUserConfig();
+  today=todayKey();
+  DOW=getDOW();
+  viewDate=today;
+  if(!STATE.days[today]){STATE.days[today]=emptyDay();saveStore();}
+  checkWeeklyReset();
+  runWeeklyAutoAdjust();
+  clearOldOverrides();
+  weeklyDismissed=STATE.weeklyDismissed||false;
+  unmountScreen();
+  ensureMainHeader();
+  primeCoachWelcome();
+  render();
+  setTimeout(initBodyChart,100);
+}
+
+bootApp();
 </script>
 </body>
 </html>
