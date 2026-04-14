@@ -7,10 +7,26 @@
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(204).end();
   }
+
+  // GET → health check. Visit /api/coach in the browser to confirm the
+  // function is live and the env var is wired up, without burning any tokens.
+  if (req.method === "GET") {
+    return res.status(200).json({
+      ok: true,
+      hasKey: !!process.env.ANTHROPIC_API_KEY,
+      keyPreview: process.env.ANTHROPIC_API_KEY
+        ? process.env.ANTHROPIC_API_KEY.slice(0, 7) + "…" + process.env.ANTHROPIC_API_KEY.slice(-4)
+        : null,
+      node: process.version,
+      region: process.env.VERCEL_REGION || null,
+      deployedAt: new Date().toISOString(),
+    });
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
