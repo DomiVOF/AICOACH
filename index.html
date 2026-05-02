@@ -304,6 +304,34 @@ body.auth-mode{overflow:auto;}
 .header-logout{position:absolute;top:38px;right:14px;background:transparent;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s;}
 .header-logout:hover,.header-logout:active{color:var(--accent);border-color:var(--accent);}
 .header-logout svg{width:15px;height:15px;}
+
+/* MEAL STATUS */
+.meal-expand-row.missed .meal-expand-name{color:var(--red);text-decoration:line-through;}
+.meal-expand-row.missed .meal-expand-kcal{color:var(--red);text-decoration:line-through;}
+.meal-expand-row.replaced .meal-expand-name{color:var(--blue);}
+.meal-expand-row.replaced .meal-expand-kcal{color:var(--blue);}
+.meal-status-tag{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:20px;margin-left:6px;}
+.tag-skipped{background:rgba(255,92,53,.1);color:var(--red);}
+.tag-swapped{background:rgba(126,184,247,.1);color:var(--blue);}
+.meal-actions{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border2);}
+.meal-action{flex:1;padding:9px 6px;border-radius:6px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:center;border:1px solid var(--border);}
+.meal-action.eaten{background:rgba(200,241,53,.1);color:var(--accent);border-color:rgba(200,241,53,.3);}
+.meal-action.missed-btn{background:rgba(255,92,53,.1);color:var(--red);border-color:rgba(255,92,53,.3);}
+.meal-action.swap-btn{background:rgba(126,184,247,.1);color:var(--blue);border-color:rgba(126,184,247,.3);}
+.meal-action.reset-btn{background:transparent;color:var(--muted);border-color:var(--border);}
+.meal-replace-form{padding:10px 12px;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px;}
+.meal-replace-form input{background:#1e1e1e;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:9px 10px;outline:none;font-family:'DM Sans',sans-serif;}
+.meal-replace-form input:focus{border-color:var(--accent);}
+.meal-replace-form .input-row{display:flex;gap:8px;}
+.meal-replace-form .input-row input{flex:1;}
+.meal-replace-form button{background:var(--blue);color:#0a0a0a;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.meal-replaced-info{padding:8px 12px;background:rgba(126,184,247,.05);font-size:12px;color:var(--blue);}
+.meal-redistribute{background:rgba(255,179,71,.07);border:1px solid rgba(255,179,71,.25);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:var(--orange);line-height:1.5;}
+
+/* Food tab meal status */
+.meal-card.meal-missed .meal-name,.meal-card.meal-missed .meal-kcal{color:var(--red) !important;text-decoration:line-through;}
+.meal-card.meal-replaced .meal-name{color:var(--blue) !important;}
+.meal-card.meal-replaced .meal-kcal{color:var(--blue) !important;}
 </style>
 </head>
 <body>
@@ -664,8 +692,15 @@ function getTrainingAdjustment(){
 
 function calcStats(){
   var d=STATE.days[today];
-  var kcalDone=MEALS.filter(function(m){return d.meals[m.id];}).reduce(function(a,m){return a+m.kcal;},0);
-  var mealsDone=Object.values(d.meals).filter(Boolean).length;
+  var todayMeals=getTodaysMeals();
+  var kcalDone=0, mealsDone=0, mealsMissed=0, mealsRemaining=0, kcalRemaining=0;
+  todayMeals.forEach(function(m){
+    var st=mealStatus(m.id);
+    if(st==="done"){kcalDone+=m.kcal;mealsDone++;}
+    else if(st==="replaced"){var v=d.meals[m.id];kcalDone+=(v.kcal||0);mealsDone++;}
+    else if(st==="missed"){mealsMissed++;}
+    else{mealsRemaining++;kcalRemaining+=m.kcal;}
+  });
   var suppsDone=Object.values(d.supps).filter(Boolean).length;
   var pepsDone=Object.values(d.peptides).filter(Boolean).length;
   var amEx=TRAINING[DOW]?TRAINING[DOW].am.length:0;
@@ -680,11 +715,12 @@ function calcStats(){
     kcalTarget:kcalTarget,
     baseTarget:baseTarget,
     trainAdj:trainAdj,
-    mealPct:(mealsDone/MEALS.length)*100,
+    mealPct:(mealsDone/todayMeals.length)*100,
     suppPct:(suppsDone/SUPPS.length)*100,
     pepPct:(pepsDone/PEPTIDES.length)*100,
     trainPct:totalEx>0?(trainDone/totalEx)*100:0,
     mealsDone:mealsDone,suppsDone:suppsDone,pepsDone:pepsDone,trainDone:trainDone,totalEx:totalEx,
+    mealsMissed:mealsMissed,mealsRemaining:mealsRemaining,kcalRemaining:kcalRemaining,totalMeals:todayMeals.length,
     muscleMass:(STATE.currentWeight*(1-STATE.currentBF/100)).toFixed(1),
     fatMass:(STATE.currentWeight*STATE.currentBF/100).toFixed(1),
   };
@@ -722,28 +758,48 @@ function renderToday(){
     </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,s.kcalDone/s.kcalTarget*100)}%"></div></div>
     ${s.trainAdj.reasons.length>0?s.trainAdj.reasons.map(function(r){return'<div class="adjust-under">Training adjustment: '+r+'</div>';}).join(""):""}
-    ${Math.abs(diff)>100&&s.mealsDone>0?(diff>0?`<div class="adjust-over">+${diff} kcal over target. Skip Meal 6 or reduce beef by ~${Math.min(300,Math.round(diff/1.3))}g.</div>`:`<div class="adjust-under">${Math.abs(diff)} kcal still to go. ${Math.abs(diff)<=300?`Add a shake (+120kcal) or +${Math.round(Math.abs(diff)/1.3)}g beef.`:`${MEALS.filter(m=>!STATE.days[today].meals[m.id]).length} meals remaining - stay on track.`}</div>`):""}
+    ${Math.abs(diff)>100&&s.mealsDone>0?(diff>0?`<div class="adjust-over">+${diff} kcal over target. Skip Meal 6 or reduce beef by ~${Math.min(300,Math.round(diff/1.3))}g.</div>`:`<div class="adjust-under">${Math.abs(diff)} kcal still to go. ${Math.abs(diff)<=300?`Add a shake (+120kcal) or +${Math.round(Math.abs(diff)/1.3)}g beef.`:`${s.mealsRemaining} meals remaining - stay on track.`}</div>`):""}
+    ${s.mealsMissed>0&&s.mealsRemaining>0?`<div class="meal-redistribute">Skipped ${s.mealsMissed} meal${s.mealsMissed>1?"s":""}. ${s.mealsRemaining} meal${s.mealsRemaining>1?"s":""} left &mdash; aim for ~${Math.round((s.kcalTarget-s.kcalDone)/s.mealsRemaining)} kcal each to stay on target.</div>`:""}
   </div>
 
   <div class="card">
-    <div class="card-label">Meals - ${s.mealsDone}/${MEALS.length}</div>
+    <div class="card-label">Meals - ${s.mealsDone}/${s.totalMeals}</div>
     ${getTodaysMeals().map(m=>{
-      const done=STATE.days[today].meals[m.id];
-      return`<div class="meal-expand-row${done?" done":""}">
+      const st=mealStatus(m.id);
+      const val=STATE.days[today].meals[m.id];
+      const rowClass=st==="done"?" done":st==="missed"?" missed":st==="replaced"?" replaced":"";
+      const displayKcal=st==="replaced"&&val?(val.kcal||0):m.kcal;
+      const displayName=st==="replaced"&&val?escHtml(val.name):m.name;
+      const statusTag=st==="missed"?'<span class="meal-status-tag tag-skipped">SKIPPED</span>':st==="replaced"?'<span class="meal-status-tag tag-swapped">SWAPPED</span>':"";
+      return`<div class="meal-expand-row${rowClass}">
         <div class="meal-expand-header" onclick="toggleMealExpand('${m.id}')">
-          <div class="checkbox${done?" checked":""}" onclick="event.stopPropagation();toggle('meals','${m.id}')">${done?CHECK_SVG:""}</div>
+          <div class="checkbox${st==="done"?" checked":""}" onclick="event.stopPropagation();toggle('meals','${m.id}')">${st==="done"?CHECK_SVG:""}</div>
           <div class="meal-expand-info">
             <span class="meal-expand-time">${m.time}</span>
-            <span class="meal-expand-name">${m.name}</span>
+            <span class="meal-expand-name">${displayName}${statusTag}</span>
           </div>
-          <span class="meal-expand-kcal">${m.kcal} kcal</span>
+          <span class="meal-expand-kcal">${displayKcal} kcal</span>
           <span class="meal-expand-arrow" id="arrow-${m.id}"> </span>
         </div>
         <div class="meal-expand-body" id="mealdetail-${m.id}" style="display:none">
+          ${st==="replaced"&&val?'<div class="meal-replaced-info">Originally: '+m.name+' ('+m.kcal+' kcal)</div>':""}
           ${m.items.map(it=>`<div class="meal-expand-item"><span>${it.n}</span><span class="meal-expand-qty">${it.q}</span></div>`).join("")}
-          <div class="meal-expand-done-btn" onclick="toggle('meals','${m.id}')">
-            ${done?'<span style="color:var(--muted)">v Done</span>':'<span style="color:var(--accent)">Mark as eaten v</span>'}
-          </div>
+          ${st==="pending"?`<div class="meal-actions">
+            <div class="meal-action eaten" onclick="event.stopPropagation();setMealStatus('${m.id}','done')">Eaten</div>
+            <div class="meal-action missed-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','missed')">Missed</div>
+            <div class="meal-action swap-btn" onclick="event.stopPropagation();showMealReplace('${m.id}')">Something Else</div>
+          </div>`:""}
+          ${st==="pending"&&mealReplaceOpen===m.id?`<div class="meal-replace-form">
+            <input type="text" id="rep-name-${m.id}" placeholder="What did you eat?">
+            <div class="input-row">
+              <input type="number" id="rep-kcal-${m.id}" placeholder="Calories">
+              <input type="time" id="rep-time-${m.id}" value="${m.time}">
+            </div>
+            <button onclick="saveMealReplace('${m.id}')">Save Replacement</button>
+          </div>`:""}
+          ${st!=="pending"?`<div class="meal-actions">
+            <div class="meal-action reset-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','pending')">Reset</div>
+          </div>`:""}
         </div>
       </div>`;
     }).join("")}
@@ -807,22 +863,43 @@ function renderFood(){
     <div class="card-label">Progress</div>
     <div class="kcal-display"><span class="kcal-big">${s.kcalDone}</span><span class="kcal-target">/ ${s.kcalTarget} kcal</span></div>
     <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,s.kcalDone/s.kcalTarget*100)}%"></div></div>
-    ${Math.abs(diff)>100&&s.mealsDone>0?(diff>0?`<div class="adjust-over">+${diff} kcal over target. Skip Meal 6 or reduce beef by ~${Math.min(300,Math.round(diff/1.3))}g.</div>`:`<div class="adjust-under">${Math.abs(diff)} kcal still to go. ${Math.abs(diff)<=300?`Add a shake (+120kcal) or +${Math.round(Math.abs(diff)/1.3)}g beef.`:`${MEALS.filter(m=>!STATE.days[today].meals[m.id]).length} meals remaining - stay on track.`}</div>`):""}
+    ${Math.abs(diff)>100&&s.mealsDone>0?(diff>0?`<div class="adjust-over">+${diff} kcal over target. Skip Meal 6 or reduce beef by ~${Math.min(300,Math.round(diff/1.3))}g.</div>`:`<div class="adjust-under">${Math.abs(diff)} kcal still to go. ${Math.abs(diff)<=300?`Add a shake (+120kcal) or +${Math.round(Math.abs(diff)/1.3)}g beef.`:`${s.mealsRemaining} meals remaining - stay on track.`}</div>`):""}
+    ${s.mealsMissed>0&&s.mealsRemaining>0?`<div class="meal-redistribute">Skipped ${s.mealsMissed} meal${s.mealsMissed>1?"s":""}. ${s.mealsRemaining} meal${s.mealsRemaining>1?"s":""} left &mdash; aim for ~${Math.round((s.kcalTarget-s.kcalDone)/s.mealsRemaining)} kcal each to stay on target.</div>`:""}
   </div>
-  ${MEALS.map(m=>{
-    const done=STATE.days[today].meals[m.id];
-    return`<div class="meal-card${done?" meal-done":""}">
+  ${getTodaysMeals().map(m=>{
+    const st=mealStatus(m.id);
+    const val=STATE.days[today].meals[m.id];
+    const cardClass=st==="done"?" meal-done":st==="missed"?" meal-missed":st==="replaced"?" meal-replaced":"";
+    const displayKcal=st==="replaced"&&val?(val.kcal||0):m.kcal;
+    const displayName=st==="replaced"&&val?escHtml(val.name):m.name;
+    const statusTag=st==="missed"?' <span class="meal-status-tag tag-skipped">SKIPPED</span>':st==="replaced"?' <span class="meal-status-tag tag-swapped">SWAPPED</span>':"";
+    return`<div class="meal-card${cardClass}">
       <div class="meal-header">
-        <div><div class="meal-time">${m.time}</div><div class="meal-name">${m.name}</div></div>
+        <div><div class="meal-time">${m.time}</div><div class="meal-name">${displayName}${statusTag}</div></div>
         <div style="display:flex;align-items:center;gap:10px;">
-          <span class="meal-kcal">${m.kcal}</span>
-          <div class="meal-check-btn${done?" checked":""}" onclick="toggle('meals','${m.id}');renderFood()">
-            ${done?CHECK_SVG:""}
+          <span class="meal-kcal">${displayKcal}</span>
+          <div class="meal-check-btn${st==="done"?" checked":""}" onclick="toggle('meals','${m.id}');renderFood()">
+            ${st==="done"?CHECK_SVG:""}
           </div>
         </div>
       </div>
       <div class="meal-body">
-        ${m.items.map(it=>`<div class="meal-item"><span style="color:${done?"#444":"#aaa"}">${it.n}</span><span>${it.q}</span></div>`).join("")}
+        ${st==="replaced"&&val?'<div class="meal-replaced-info" style="margin-bottom:6px;">Originally: '+escHtml(m.name)+' ('+m.kcal+' kcal)</div>':""}
+        ${m.items.map(it=>`<div class="meal-item"><span style="color:${st==="done"||st==="missed"?"#444":"#aaa"}">${it.n}</span><span>${it.q}</span></div>`).join("")}
+        <div class="meal-actions" style="border-top:none;padding:8px 0 2px;">
+          ${st==="pending"?`<div class="meal-action eaten" onclick="event.stopPropagation();setMealStatus('${m.id}','done')">Eaten</div>
+          <div class="meal-action missed-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','missed')">Missed</div>
+          <div class="meal-action swap-btn" onclick="event.stopPropagation();showMealReplace('${m.id}')">Something Else</div>`:""}
+          ${st!=="pending"?`<div class="meal-action reset-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','pending')">Reset</div>`:""}
+        </div>
+        ${st==="pending"&&mealReplaceOpen===m.id?`<div class="meal-replace-form" style="padding:8px 0;">
+          <input type="text" id="rep-name-${m.id}" placeholder="What did you eat?">
+          <div class="input-row">
+            <input type="number" id="rep-kcal-${m.id}" placeholder="Calories">
+            <input type="time" id="rep-time-${m.id}" value="${m.time}">
+          </div>
+          <button onclick="saveMealReplace('${m.id}')">Save Replacement</button>
+        </div>`:""}
       </div>
     </div>`;
   }).join("")}
@@ -1282,6 +1359,59 @@ function toggleTrain(session,idx){
   if(!STATE.days[_k].training[session])STATE.days[_k].training[session]={};
   STATE.days[_k].training[session][idx]=!STATE.days[today].training[session][idx];
   saveStore();
+  render();
+}
+
+// --- MEAL STATUS HELPERS ---
+function mealStatus(mealId, dateKey) {
+  var dk = dateKey || today;
+  var val = STATE.days[dk] && STATE.days[dk].meals ? STATE.days[dk].meals[mealId] : false;
+  if (val === true) return "done";
+  if (val === "missed") return "missed";
+  if (val && typeof val === "object" && val.replaced) return "replaced";
+  return "pending";
+}
+function mealActualKcal(mealId, dateKey) {
+  var st = mealStatus(mealId, dateKey);
+  if (st === "done") {
+    var m = getTodaysMeals().find(function(x){return x.id===mealId;});
+    return m ? m.kcal : 0;
+  }
+  if (st === "replaced") {
+    var dk = dateKey || today;
+    var val = STATE.days[dk].meals[mealId];
+    return val.kcal || 0;
+  }
+  return 0;
+}
+function setMealStatus(mealId, status) {
+  if (!isViewingToday()) return;
+  var dk = todayKey();
+  if (!STATE.days[dk]) STATE.days[dk] = emptyDay();
+  if (status === "done") STATE.days[dk].meals[mealId] = true;
+  else if (status === "missed") STATE.days[dk].meals[mealId] = "missed";
+  else if (status === "pending") STATE.days[dk].meals[mealId] = false;
+  saveStore();
+  render();
+}
+function saveMealReplace(mealId) {
+  if (!isViewingToday()) return;
+  var dk = todayKey();
+  if (!STATE.days[dk]) STATE.days[dk] = emptyDay();
+  var nameEl = document.getElementById("rep-name-" + mealId);
+  var kcalEl = document.getElementById("rep-kcal-" + mealId);
+  var timeEl = document.getElementById("rep-time-" + mealId);
+  var name = nameEl ? nameEl.value.trim() : "";
+  var kcal = kcalEl ? parseInt(kcalEl.value, 10) : 0;
+  var time = timeEl ? timeEl.value.trim() : "";
+  if (!name || !kcal) return;
+  STATE.days[dk].meals[mealId] = { replaced: true, name: name, kcal: kcal, time: time || null };
+  saveStore();
+  render();
+}
+var mealReplaceOpen = null;
+function showMealReplace(mealId) {
+  mealReplaceOpen = (mealReplaceOpen === mealId) ? null : mealId;
   render();
 }
 
