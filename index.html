@@ -773,7 +773,7 @@ function renderToday(){
       const statusTag=st==="missed"?'<span class="meal-status-tag tag-skipped">SKIPPED</span>':st==="replaced"?'<span class="meal-status-tag tag-swapped">SWAPPED</span>':"";
       return`<div class="meal-expand-row${rowClass}">
         <div class="meal-expand-header" onclick="toggleMealExpand('${m.id}')">
-          <div class="checkbox${st==="done"?" checked":""}" onclick="event.stopPropagation();${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":"toggleMealExpand('"+m.id+"')"}">${st==="done"?CHECK_SVG:""}</div>
+          <div class="checkbox${st==="done"||st==="replaced"?" checked":""}" style="${st==="replaced"?"background:var(--blue);border-color:var(--blue)":""}" onclick="event.stopPropagation();${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":"toggleMealExpand('"+m.id+"')"}">${st==="done"||st==="replaced"?CHECK_SVG:""}</div>
           <div class="meal-expand-info">
             <span class="meal-expand-time">${m.time}</span>
             <span class="meal-expand-name">${displayName}${statusTag}</span>
@@ -878,8 +878,8 @@ function renderFood(){
         <div><div class="meal-time">${m.time}</div><div class="meal-name">${displayName}${statusTag}</div></div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="meal-kcal">${displayKcal}</span>
-          <div class="meal-check-btn${st==="done"?" checked":""}" onclick="${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":""}">
-            ${st==="done"?CHECK_SVG:""}
+          <div class="meal-check-btn${st==="done"||st==="replaced"?" checked":""}" style="${st==="replaced"?"background:var(--blue);border-color:var(--blue)":""}" onclick="${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":""}">
+            ${st==="done"||st==="replaced"?CHECK_SVG:""}
           </div>
         </div>
       </div>
