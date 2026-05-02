@@ -322,6 +322,21 @@ body.auth-mode{overflow:auto;}
 .settings-add-input:focus{border-color:var(--accent);}
 .settings-add-select{background:#1e1e1e;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:8px 4px;outline:none;min-width:0;}
 .settings-add-btn{background:var(--accent);color:#0a0a0a;border:none;border-radius:6px;width:34px;height:34px;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.settings-train-day{border-bottom:1px solid var(--border2);}
+.settings-train-day:last-child{border-bottom:none;}
+.settings-train-header{display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;user-select:none;}
+.settings-train-day-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--white);width:40px;flex-shrink:0;}
+.settings-train-focus{flex:1;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.settings-train-count{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);background:rgba(200,241,53,.1);padding:2px 8px;border-radius:10px;}
+.settings-train-body{padding:0 0 10px 8px;}
+.settings-train-session-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:10px 0 4px;}
+.settings-train-ex{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);}
+.settings-train-ex:last-of-type{border-bottom:none;}
+.settings-train-ex .settings-item-name{flex:1;font-size:12px;}
+.settings-train-ex .settings-item-dose{font-size:10px;flex-shrink:0;}
+.settings-train-focus-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.settings-train-focus-row .input-label{flex-shrink:0;margin-bottom:0;}
+.settings-train-focus-row input{flex:1;}
 
 /* MEAL STATUS */
 .meal-expand-row.missed .meal-expand-name{color:var(--red);text-decoration:line-through;}
@@ -442,8 +457,8 @@ let PEPTIDES=[
   {id:"p7",name:"Sermorelin",dose:"200-300mcg SubQ",tag:"Pre-Sleep",tc:"tag-bed"},
 ];
 const DAYS=["MON","TUE","WED","THU","FRI","SAT","SUN"];
-const DAY_FOCUS={MON:"Push A - Chest/Shoulders/Triceps",TUE:"Pull A - Back/Biceps",WED:"Legs A - Quads/Hams/Glutes",THU:"Push B - Chest/Shoulders/Triceps",FRI:"Pull B - Back/Biceps",SAT:"Legs B - Posterior Chain",SUN:"Rest & Recovery"};
-const TRAINING={
+let DAY_FOCUS={MON:"Push A - Chest/Shoulders/Triceps",TUE:"Pull A - Back/Biceps",WED:"Legs A - Quads/Hams/Glutes",THU:"Push B - Chest/Shoulders/Triceps",FRI:"Pull B - Back/Biceps",SAT:"Legs B - Posterior Chain",SUN:"Rest & Recovery"};
+let TRAINING={
   MON:{focus:"Push A",am:[
     {n:"Neck flexion/extension/lateral",s:"3x15",muscle:"neck",weighted:false},
     {n:"Dead bug + Pallof press",s:"3x12",muscle:"core",weighted:false},
@@ -609,6 +624,11 @@ function applyUserConfig(){
   const c=STATE.config;if(!c)return;
   if(Array.isArray(c.supps)&&c.supps.length)SUPPS=c.supps;
   if(Array.isArray(c.peptides)&&c.peptides.length)PEPTIDES=c.peptides;
+  if(c.training&&typeof c.training==="object"){
+    TRAINING=c.training;
+    DAYS.forEach(function(d){if(!TRAINING[d])TRAINING[d]={focus:"Rest",am:[],pm:[]};});
+  }
+  if(c.dayFocus&&typeof c.dayFocus==="object")DAY_FOCUS=c.dayFocus;
   // backfill checkbox slots for items added after initial onboarding
   Object.values(STATE.days||{}).forEach(function(d){
     if(d&&d.supps)SUPPS.forEach(function(s){if(!(s.id in d.supps))d.supps[s.id]=false;});
@@ -2446,6 +2466,63 @@ function renderSettings(){
   +'</div>';
   html+='</div>';
 
+  // Training
+  html+='<div class="card red"><div class="card-label">Training Schedule</div>';
+  DAYS.forEach(function(day){
+    var t=TRAINING[day]||{focus:"Rest",am:[],pm:[]};
+    var isOpen=settingsTrainOpen===day;
+    var total=(t.am?t.am.length:0)+(t.pm?t.pm.length:0);
+    html+='<div class="settings-train-day">'
+      +'<div class="settings-train-header" onclick="settingsTrainOpen=settingsTrainOpen===\''+day+'\'?null:\''+day+'\';renderSettings()">'
+        +'<span class="settings-train-day-name">'+day+'</span>'
+        +'<span class="settings-train-focus">'+escHtml(t.focus||DAY_FOCUS[day]||"")+'</span>'
+        +'<span class="settings-train-count">'+total+'</span>'
+        +'<span class="meal-expand-arrow'+(isOpen?' open':'')+'"> </span>'
+      +'</div>';
+    if(isOpen){
+      html+='<div class="settings-train-body">';
+      // Focus label
+      html+='<div class="settings-train-focus-row">'
+        +'<span class="input-label">Focus label</span>'
+        +'<input type="text" class="settings-add-input" value="'+escHtml(t.focus||"")+'" onchange="updateDayFocus(\''+day+'\',this.value)">'
+      +'</div>';
+      // AM session
+      html+='<div class="settings-train-session-label">AM — Structural</div>';
+      (t.am||[]).forEach(function(ex,i){
+        html+='<div class="settings-train-ex">'
+          +'<span class="settings-item-name">'+escHtml(ex.n)+'</span>'
+          +'<span class="settings-item-dose">'+escHtml(ex.s||ex.sets+"x"+ex.reps||"")+'</span>'
+          +'<button class="settings-del" onclick="removeExercise(\''+day+'\',\'am\','+i+')">&times;</button>'
+        +'</div>';
+      });
+      html+='<div class="settings-add-row">'
+        +'<input type="text" id="add-ex-'+day+'-am-name" placeholder="Exercise name" class="settings-add-input">'
+        +'<input type="text" id="add-ex-'+day+'-am-sets" placeholder="3x12" class="settings-add-input" style="max-width:70px">'
+        +'<button class="settings-add-btn" onclick="addExercise(\''+day+'\',\'am\')">+</button>'
+      +'</div>';
+      // PM session
+      html+='<div class="settings-train-session-label">PM — Heavy Compound</div>';
+      (t.pm||[]).forEach(function(ex,i){
+        var detail=ex.weighted?(ex.sets+"x"+ex.reps):(ex.s||"");
+        html+='<div class="settings-train-ex">'
+          +'<span class="settings-item-name">'+escHtml(ex.n)+'</span>'
+          +'<span class="settings-item-dose">'+escHtml(detail)+'</span>'
+          +'<span class="settings-item-dose">'+escHtml(ex.muscle||"").replace("_"," ")+'</span>'
+          +'<button class="settings-del" onclick="removeExercise(\''+day+'\',\'pm\','+i+')">&times;</button>'
+        +'</div>';
+      });
+      html+='<div class="settings-add-row">'
+        +'<input type="text" id="add-ex-'+day+'-pm-name" placeholder="Exercise name" class="settings-add-input">'
+        +'<input type="text" id="add-ex-'+day+'-pm-sets" placeholder="4x8" class="settings-add-input" style="max-width:60px">'
+        +'<input type="text" id="add-ex-'+day+'-pm-muscle" placeholder="muscle" class="settings-add-input" style="max-width:70px">'
+        +'<button class="settings-add-btn" onclick="addExercise(\''+day+'\',\'pm\')">+</button>'
+      +'</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+
   // Profile info
   html+='<div class="card grey"><div class="card-label">Profile</div>'
     +'<div class="settings-row"><span class="settings-item-name">'+(acc?escHtml(acc.name):"Unknown")+'</span></div>'
@@ -2495,6 +2572,45 @@ function addPepItem(){
   var id="p_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   PEPTIDES.push({id:id,name:name.trim(),dose:dose.trim(),tag:tag,tc:tagClassFor(tag),active:true});
   saveSuppsConfig();renderSettings();
+}
+
+// --- Training settings ---
+var settingsTrainOpen=null;
+function saveTrainingConfig(){
+  if(!STATE.config)STATE.config={};
+  STATE.config.training=JSON.parse(JSON.stringify(TRAINING));
+  STATE.config.dayFocus=JSON.parse(JSON.stringify(DAY_FOCUS));
+  saveStore();
+}
+function updateDayFocus(day,val){
+  TRAINING[day].focus=val.trim();
+  DAY_FOCUS[day]=val.trim()+(TRAINING[day].pm&&TRAINING[day].pm.length>0?" - "+TRAINING[day].pm.map(function(e){return e.muscle;}).filter(function(v,i,a){return a.indexOf(v)===i;}).slice(0,3).join("/"):"");
+  saveTrainingConfig();
+}
+function removeExercise(day,session,idx){
+  if(!TRAINING[day]||!TRAINING[day][session])return;
+  TRAINING[day][session].splice(idx,1);
+  saveTrainingConfig();renderSettings();
+}
+function addExercise(day,session){
+  var nameEl=document.getElementById("add-ex-"+day+"-"+session+"-name");
+  var setsEl=document.getElementById("add-ex-"+day+"-"+session+"-sets");
+  var muscleEl=document.getElementById("add-ex-"+day+"-"+session+"-muscle");
+  var name=nameEl?nameEl.value.trim():"";
+  var setsStr=setsEl?setsEl.value.trim():"";
+  var muscle=muscleEl?muscleEl.value.trim():"general";
+  if(!name)return;
+  if(!TRAINING[day])TRAINING[day]={focus:"",am:[],pm:[]};
+  if(!TRAINING[day][session])TRAINING[day][session]=[];
+  if(session==="am"){
+    TRAINING[day][session].push({n:name,s:setsStr||"3x12",muscle:muscle||"general",weighted:false});
+  } else {
+    var parts=setsStr.match(/^(\d+)\s*x\s*(.+)$/);
+    var sets=parts?parseInt(parts[1],10):3;
+    var reps=parts?parts[2]:"10";
+    TRAINING[day][session].push({n:name,sets:sets,reps:reps,muscle:muscle||"general",weighted:true});
+  }
+  saveTrainingConfig();renderSettings();
 }
 
 function render(){
