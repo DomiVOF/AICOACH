@@ -337,6 +337,9 @@ body.auth-mode{overflow:auto;}
 .settings-train-focus-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .settings-train-focus-row .input-label{flex-shrink:0;margin-bottom:0;}
 .settings-train-focus-row input{flex:1;}
+.settings-ai-wizard{padding:14px 0 4px;border-top:1px solid var(--border2);margin-top:8px;}
+.settings-ai-wizard .phase-row{flex-wrap:wrap;}
+.settings-ai-wizard .phase-pill{min-width:auto;flex:0 1 auto;padding:8px 12px;font-size:10px;}
 
 /* MEAL STATUS */
 .meal-expand-row.missed .meal-expand-name{color:var(--red);text-decoration:line-through;}
@@ -397,10 +400,6 @@ body.auth-mode{overflow:auto;}
   <button id="nav-body" onclick="showTab('body')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
     Body
-  </button>
-  <button id="nav-schedule" onclick="showTab('schedule')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    Schedule
   </button>
   <button id="nav-settings" onclick="showTab('settings')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -2521,6 +2520,42 @@ function renderSettings(){
     }
     html+='</div>';
   });
+  // AI training generator
+  if(!aiTrainWizardOpen){
+    html+='<div style="padding:12px 0 4px;border-top:1px solid var(--border2);margin-top:8px;">'
+      +'<button class="btn" onclick="aiTrainWizardOpen=true;renderSettings()">Generate new training plan with AI</button>'
+    +'</div>';
+  } else {
+    html+='<div class="settings-ai-wizard">'
+      +'<div class="coach-h" style="margin-bottom:10px">AI TRAINING SETUP</div>'
+      +'<div class="input-group"><div class="input-label">How many days per week?</div>'
+        +'<div class="phase-row">'
+        +[3,4,5,6].map(function(n){return'<button class="phase-pill'+(aiTrainDays===n?' active':'')+'" onclick="aiTrainDays='+n+';renderSettings()">'+n+'</button>';}).join('')
+        +'</div></div>'
+      +'<div class="input-group"><div class="input-label">Split type</div>'
+        +'<div class="phase-row">'
+        +[{v:"ppl",l:"Push/Pull/Legs"},{v:"upper_lower",l:"Upper/Lower"},{v:"full_body",l:"Full Body"},{v:"bro",l:"Bro Split"}].map(function(o){return'<button class="phase-pill'+(aiTrainSplit===o.v?' active':'')+'" onclick="aiTrainSplit=\''+o.v+'\';renderSettings()">'+o.l+'</button>';}).join('')
+        +'</div></div>'
+      +'<div class="input-group"><div class="input-label">Goal</div>'
+        +'<div class="phase-row">'
+        +[{v:"strength",l:"Strength"},{v:"hypertrophy",l:"Hypertrophy"},{v:"endurance",l:"Endurance"},{v:"general",l:"General"}].map(function(o){return'<button class="phase-pill'+(aiTrainGoal===o.v?' active':'')+'" onclick="aiTrainGoal=\''+o.v+'\';renderSettings()">'+o.l+'</button>';}).join('')
+        +'</div></div>'
+      +'<div class="input-group"><div class="input-label">Include AM structural / mobility session?</div>'
+        +'<div class="phase-row">'
+        +'<button class="phase-pill'+(aiTrainAM?' active':'')+'" onclick="aiTrainAM=true;renderSettings()">Yes</button>'
+        +'<button class="phase-pill'+(!aiTrainAM?' active':'')+'" onclick="aiTrainAM=false;renderSettings()">No</button>'
+        +'</div></div>'
+      +'<div class="input-group"><div class="input-label">Equipment available</div>'
+        +'<input type="text" id="ai-train-equip" value="'+escHtml(aiTrainEquip)+'" placeholder="Full gym, dumbbells only, home gym...">'
+      +'</div>'
+      +'<div class="input-group"><div class="input-label">Anything else? (injuries, preferences)</div>'
+        +'<input type="text" id="ai-train-notes" value="'+escHtml(aiTrainNotes)+'" placeholder="e.g. bad shoulder, prefer compounds...">'
+      +'</div>'
+      +'<div id="ai-train-status" class="rep-status"></div>'
+      +'<button class="btn" id="ai-train-btn" onclick="generateAITraining()">Generate program</button>'
+      +'<button class="auth-link danger-link" onclick="aiTrainWizardOpen=false;renderSettings()">Cancel</button>'
+    +'</div>';
+  }
   html+='</div>';
 
   // Profile info
@@ -2576,6 +2611,9 @@ function addPepItem(){
 
 // --- Training settings ---
 var settingsTrainOpen=null;
+var aiTrainWizardOpen=false;
+var aiTrainDays=5, aiTrainSplit="ppl", aiTrainGoal="hypertrophy", aiTrainAM=true;
+var aiTrainEquip="Full gym", aiTrainNotes="";
 function saveTrainingConfig(){
   if(!STATE.config)STATE.config={};
   STATE.config.training=JSON.parse(JSON.stringify(TRAINING));
@@ -2613,13 +2651,65 @@ function addExercise(day,session){
   saveTrainingConfig();renderSettings();
 }
 
+async function generateAITraining(){
+  var equipEl=document.getElementById("ai-train-equip");
+  var notesEl=document.getElementById("ai-train-notes");
+  if(equipEl)aiTrainEquip=equipEl.value.trim();
+  if(notesEl)aiTrainNotes=notesEl.value.trim();
+  var statusEl=document.getElementById("ai-train-status");
+  var btnEl=document.getElementById("ai-train-btn");
+  if(statusEl){statusEl.textContent="Generating your program...";statusEl.className="rep-status rep-loading";}
+  if(btnEl){btnEl.disabled=true;btnEl.textContent="Generating...";}
+  var prompt="Create a complete weekly training program with these parameters:\n"
+    +"- Days per week: "+aiTrainDays+"\n"
+    +"- Split: "+aiTrainSplit.replace("_"," ")+"\n"
+    +"- Goal: "+aiTrainGoal+"\n"
+    +"- Include AM structural/mobility session: "+(aiTrainAM?"yes":"no")+"\n"
+    +"- Equipment: "+(aiTrainEquip||"full gym")+"\n"
+    +(aiTrainNotes?"- Notes: "+aiTrainNotes+"\n":"")
+    +"\nReturn ONLY valid JSON, no other text. Format:\n"
+    +'{"training":{"MON":{"focus":"Push A","am":[{"n":"Exercise","s":"3x12","muscle":"core","weighted":false}],"pm":[{"n":"Exercise","sets":4,"reps":"8","muscle":"chest","weighted":true}]},"TUE":{...},...,"SUN":{...}},"dayFocus":{"MON":"Push A - Chest/Shoulders","TUE":"Pull A - Back/Biceps",...,"SUN":"Rest & Recovery"}}\n'
+    +"Rules:\n"
+    +"- All 7 days must be present (rest days have empty am:[] and pm:[] with focus:'Recovery')\n"
+    +"- AM exercises use {n, s, muscle, weighted:false}\n"
+    +"- PM exercises use {n, sets, reps, muscle, weighted:true}\n"
+    +"- muscle is a single lowercase word (chest, back, shoulders, quads, hamstrings, glutes, calves, biceps, triceps, core, neck, fascia, cardio, recovery)\n"
+    +"- dayFocus values: 'Focus - Muscle1/Muscle2' format\n";
+  try{
+    var res=await fetch("/api/coach",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:4000,
+        system:"You are a professional strength and conditioning coach. Return ONLY valid JSON, no markdown fencing, no explanation.",
+        messages:[{role:"user",content:prompt}]
+      })
+    });
+    if(!res.ok)throw new Error("API error "+res.status);
+    var data=await res.json();
+    var text=data.content&&data.content[0]?data.content[0].text.trim():"";
+    // strip any markdown fencing
+    text=text.replace(/^```json\s*/,"").replace(/```\s*$/,"").trim();
+    var parsed=JSON.parse(text);
+    if(!parsed.training)throw new Error("Missing training key");
+    TRAINING=parsed.training;
+    DAYS.forEach(function(d){if(!TRAINING[d])TRAINING[d]={focus:"Rest",am:[],pm:[]};});
+    if(parsed.dayFocus)DAY_FOCUS=parsed.dayFocus;
+    else DAYS.forEach(function(d){DAY_FOCUS[d]=TRAINING[d].focus||"Rest";});
+    saveTrainingConfig();
+    aiTrainWizardOpen=false;
+    renderSettings();
+  }catch(e){
+    if(statusEl){statusEl.textContent="Failed: "+(e.message||"Unknown error")+". Try again.";statusEl.className="rep-status rep-error";}
+    if(btnEl){btnEl.disabled=false;btnEl.textContent="Retry";}
+  }
+}
+
 function render(){
   if(currentTab==="today")renderToday();
   else if(currentTab==="food")renderFood();
   else if(currentTab==="train")renderTrain();
   else if(currentTab==="supps")renderSupps();
   else if(currentTab==="body")renderBody();
-  else if(currentTab==="schedule")renderSchedule();
   else if(currentTab==="settings")renderSettings();
   else if(currentTab==="missed")renderMissedTab();
 }
