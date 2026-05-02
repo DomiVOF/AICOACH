@@ -758,11 +758,9 @@ function renderToday(){
     <div class="card-label">Calories Today</div>
     <div class="kcal-display">
       <span class="kcal-big">${s.kcalDone}</span>
-      <span class="kcal-target">/ ${s.kcalTarget} kcal${s.trainAdj.adj!==0?" (adj "+s.trainAdj.adj+")":" "}</span>
+      <span class="kcal-target">/ ${s.kcalTarget} kcal</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,s.kcalDone/s.kcalTarget*100)}%"></div></div>
-    ${s.trainAdj.reasons.length>0?s.trainAdj.reasons.map(function(r){return'<div class="adjust-under">Training adjustment: '+r+'</div>';}).join(""):""}
-    ${Math.abs(diff)>100&&s.mealsDone>0?(diff>0?`<div class="adjust-over">+${diff} kcal over target. Skip Meal 6 or reduce beef by ~${Math.min(300,Math.round(diff/1.3))}g.</div>`:`<div class="adjust-under">${Math.abs(diff)} kcal still to go. ${Math.abs(diff)<=300?`Add a shake (+120kcal) or +${Math.round(Math.abs(diff)/1.3)}g beef.`:`${s.mealsRemaining} meals remaining - stay on track.`}</div>`):""}
     ${s.mealsMissed>0&&s.mealsRemaining>0?`<div class="meal-redistribute">Skipped ${s.mealsMissed} meal${s.mealsMissed>1?"s":""}. ${s.mealsRemaining} meal${s.mealsRemaining>1?"s":""} left &mdash; aim for ~${Math.round((s.kcalTarget-s.kcalDone)/s.mealsRemaining)} kcal each to stay on target.</div>`:""}
   </div>
 
