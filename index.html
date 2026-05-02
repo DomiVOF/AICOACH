@@ -773,15 +773,15 @@ function renderToday(){
       const statusTag=st==="missed"?'<span class="meal-status-tag tag-skipped">SKIPPED</span>':st==="replaced"?'<span class="meal-status-tag tag-swapped">SWAPPED</span>':"";
       return`<div class="meal-expand-row${rowClass}">
         <div class="meal-expand-header" onclick="toggleMealExpand('${m.id}')">
-          <div class="checkbox${st==="done"?" checked":""}" onclick="event.stopPropagation();toggle('meals','${m.id}')">${st==="done"?CHECK_SVG:""}</div>
+          <div class="checkbox${st==="done"?" checked":""}" onclick="event.stopPropagation();${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":"toggleMealExpand('"+m.id+"')"}">${st==="done"?CHECK_SVG:""}</div>
           <div class="meal-expand-info">
             <span class="meal-expand-time">${m.time}</span>
             <span class="meal-expand-name">${displayName}${statusTag}</span>
           </div>
           <span class="meal-expand-kcal">${displayKcal} kcal</span>
-          <span class="meal-expand-arrow" id="arrow-${m.id}"> </span>
+          <span class="meal-expand-arrow${expandedMeals[m.id]?' open':''}" id="arrow-${m.id}"> </span>
         </div>
-        <div class="meal-expand-body" id="mealdetail-${m.id}" style="display:none">
+        <div class="meal-expand-body" id="mealdetail-${m.id}" style="display:${expandedMeals[m.id]?'block':'none'}">
           ${st==="replaced"&&val?'<div class="meal-replaced-info">Originally: '+m.name+' ('+m.kcal+' kcal)</div>':""}
           ${m.items.map(it=>`<div class="meal-expand-item"><span>${it.n}</span><span class="meal-expand-qty">${it.q}</span></div>`).join("")}
           ${st==="pending"?`<div class="meal-actions">
@@ -878,7 +878,7 @@ function renderFood(){
         <div><div class="meal-time">${m.time}</div><div class="meal-name">${displayName}${statusTag}</div></div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="meal-kcal">${displayKcal}</span>
-          <div class="meal-check-btn${st==="done"?" checked":""}" onclick="toggle('meals','${m.id}');renderFood()">
+          <div class="meal-check-btn${st==="done"?" checked":""}" onclick="${st==='pending'||st==='done'?"setMealStatus('"+m.id+"','"+(st==='done'?'pending':'done')+"')":""}">
             ${st==="done"?CHECK_SVG:""}
           </div>
         </div>
@@ -1336,13 +1336,14 @@ function renderBody(){
 }
 
 // --- ACTIONS ------------------------------------------------------------------
+var expandedMeals={};
 function toggleMealExpand(id){
+  expandedMeals[id]=!expandedMeals[id];
   const body=document.getElementById('mealdetail-'+id);
   const arrow=document.getElementById('arrow-'+id);
   if(!body)return;
-  const open=body.style.display==='none';
-  body.style.display=open?'block':'none';
-  if(arrow){arrow.classList.toggle('open',open);}
+  body.style.display=expandedMeals[id]?'block':'none';
+  if(arrow){arrow.classList.toggle('open',expandedMeals[id]);}
 }
 
 function toggle(cat,id){
@@ -1412,6 +1413,7 @@ function saveMealReplace(mealId) {
 var mealReplaceOpen = null;
 function showMealReplace(mealId) {
   mealReplaceOpen = (mealReplaceOpen === mealId) ? null : mealId;
+  if(mealReplaceOpen) expandedMeals[mealId]=true;
   render();
 }
 
