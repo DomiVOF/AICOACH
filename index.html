@@ -326,6 +326,10 @@ body.auth-mode{overflow:auto;}
 .meal-replace-form .input-row input{flex:1;}
 .meal-replace-form button{background:var(--blue);color:#0a0a0a;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .meal-replaced-info{padding:8px 12px;background:rgba(126,184,247,.05);font-size:12px;color:var(--blue);}
+.rep-status{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.5px;min-height:16px;color:var(--muted);}
+.rep-status.rep-loading{color:var(--accent);}
+.rep-status.rep-error{color:var(--red);}
+.meal-replace-form button:disabled{opacity:.5;cursor:wait;}
 .meal-redistribute{background:rgba(255,179,71,.07);border:1px solid rgba(255,179,71,.25);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;color:var(--orange);line-height:1.5;}
 
 /* Food tab meal status */
@@ -789,13 +793,14 @@ function renderToday(){
             <div class="meal-action missed-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','missed')">Missed</div>
             <div class="meal-action swap-btn" onclick="event.stopPropagation();showMealReplace('${m.id}')">Something Else</div>
           </div>`:""}
-          ${st==="pending"&&mealReplaceOpen===m.id?`<div class="meal-replace-form">
-            <input type="text" id="rep-name-${m.id}" placeholder="What did you eat?">
+          ${st==="pending"&&mealReplaceOpen===m.id?`<div class="meal-replace-form" onclick="event.stopPropagation()">
+            <input type="text" id="rep-name-${m.id}" placeholder="What did you eat? (e.g. Chicken salad)">
             <div class="input-row">
-              <input type="number" id="rep-kcal-${m.id}" placeholder="Calories">
+              <input type="text" id="rep-amount-${m.id}" placeholder="Amount (e.g. 300g, 2 pieces)">
               <input type="time" id="rep-time-${m.id}" value="${m.time}">
             </div>
-            <button onclick="saveMealReplace('${m.id}')">Save Replacement</button>
+            <div id="rep-status-${m.id}" class="rep-status"></div>
+            <button id="rep-btn-${m.id}" onclick="saveMealReplace('${m.id}')">Calculate & save</button>
           </div>`:""}
           ${st!=="pending"?`<div class="meal-actions">
             <div class="meal-action reset-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','pending')">Reset</div>
@@ -893,12 +898,13 @@ function renderFood(){
           ${st!=="pending"?`<div class="meal-action reset-btn" onclick="event.stopPropagation();setMealStatus('${m.id}','pending')">Reset</div>`:""}
         </div>
         ${st==="pending"&&mealReplaceOpen===m.id?`<div class="meal-replace-form" style="padding:8px 0;">
-          <input type="text" id="rep-name-${m.id}" placeholder="What did you eat?">
+          <input type="text" id="rep-name-${m.id}" placeholder="What did you eat? (e.g. Chicken salad)">
           <div class="input-row">
-            <input type="number" id="rep-kcal-${m.id}" placeholder="Calories">
+            <input type="text" id="rep-amount-${m.id}" placeholder="Amount (e.g. 300g, 2 pieces)">
             <input type="time" id="rep-time-${m.id}" value="${m.time}">
           </div>
-          <button onclick="saveMealReplace('${m.id}')">Save Replacement</button>
+          <div id="rep-status-${m.id}" class="rep-status"></div>
+          <button id="rep-btn-${m.id}" onclick="saveMealReplace('${m.id}')">Calculate & save</button>
         </div>`:""}
       </div>
     </div>`;
@@ -1395,20 +1401,56 @@ function setMealStatus(mealId, status) {
   saveStore();
   render();
 }
-function saveMealReplace(mealId) {
+async function saveMealReplace(mealId) {
   if (!isViewingToday()) return;
   var dk = todayKey();
   if (!STATE.days[dk]) STATE.days[dk] = emptyDay();
   var nameEl = document.getElementById("rep-name-" + mealId);
-  var kcalEl = document.getElementById("rep-kcal-" + mealId);
+  var amountEl = document.getElementById("rep-amount-" + mealId);
   var timeEl = document.getElementById("rep-time-" + mealId);
+  var statusEl = document.getElementById("rep-status-" + mealId);
+  var btnEl = document.getElementById("rep-btn-" + mealId);
   var name = nameEl ? nameEl.value.trim() : "";
-  var kcal = kcalEl ? parseInt(kcalEl.value, 10) : 0;
+  var amount = amountEl ? amountEl.value.trim() : "";
   var time = timeEl ? timeEl.value.trim() : "";
-  if (!name || !kcal) return;
-  STATE.days[dk].meals[mealId] = { replaced: true, name: name, kcal: kcal, time: time || null };
-  saveStore();
-  render();
+  if (!name) { if(statusEl)statusEl.textContent="Enter what you ate."; return; }
+  if (!amount) { if(statusEl)statusEl.textContent="Enter the amount / weight."; return; }
+  if(btnEl){btnEl.disabled=true;btnEl.textContent="Calculating...";}
+  if(statusEl){statusEl.textContent="Estimating calories...";statusEl.className="rep-status rep-loading";}
+  try {
+    var kcal = await estimateKcal(name, amount);
+    if(!kcal||kcal<=0) throw new Error("Could not estimate");
+    var label = name + " (" + amount + ")";
+    STATE.days[dk].meals[mealId] = { replaced: true, name: label, kcal: kcal, time: time || null };
+    mealReplaceOpen = null;
+    saveStore();
+    render();
+  } catch(e) {
+    if(statusEl){statusEl.textContent="Could not estimate kcal. Try being more specific.";statusEl.className="rep-status rep-error";}
+    if(btnEl){btnEl.disabled=false;btnEl.textContent="Retry";}
+  }
+}
+async function estimateKcal(food, amount) {
+  var prompt = "Estimate the total calories for this food:\n"
+    + "Food: " + food + "\n"
+    + "Amount: " + amount + "\n\n"
+    + "Return ONLY a single integer number of kcal. No text, no explanation, no units — just the number.";
+  var res = await fetch("/api/coach", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 50,
+      system: "You are a nutrition calculator. You estimate calories from food descriptions. Return ONLY an integer number of kcal. Nothing else.",
+      messages: [{role: "user", content: prompt}]
+    })
+  });
+  if (!res.ok) throw new Error("API error");
+  var data = await res.json();
+  var text = data.content && data.content[0] ? data.content[0].text.trim() : "";
+  var match = text.match(/(\d+)/);
+  if (!match) throw new Error("No number in response");
+  return parseInt(match[1], 10);
 }
 var mealReplaceOpen = null;
 function showMealReplace(mealId) {
