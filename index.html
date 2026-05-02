@@ -305,6 +305,24 @@ body.auth-mode{overflow:auto;}
 .header-logout:hover,.header-logout:active{color:var(--accent);border-color:var(--accent);}
 .header-logout svg{width:15px;height:15px;}
 
+/* SETTINGS */
+.settings-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border2);}
+.settings-row:last-of-type{border-bottom:none;}
+.settings-toggle{width:40px;height:22px;border-radius:11px;background:#333;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;}
+.settings-toggle.on{background:var(--accent);}
+.settings-toggle-dot{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .2s;}
+.settings-toggle.on .settings-toggle-dot{transform:translateX(18px);}
+.settings-item-info{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0;}
+.settings-item-name{font-size:13px;color:var(--text);}
+.settings-item-dose{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+.settings-del{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);width:28px;height:28px;font-size:16px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.settings-del:hover,.settings-del:active{color:var(--red);border-color:var(--red);}
+.settings-add-row{display:flex;gap:6px;align-items:center;padding:10px 0 4px;border-top:1px solid var(--border2);margin-top:4px;}
+.settings-add-input{flex:1;background:#1e1e1e;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:8px;outline:none;font-family:'DM Sans',sans-serif;min-width:0;}
+.settings-add-input:focus{border-color:var(--accent);}
+.settings-add-select{background:#1e1e1e;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:8px 4px;outline:none;min-width:0;}
+.settings-add-btn{background:var(--accent);color:#0a0a0a;border:none;border-radius:6px;width:34px;height:34px;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+
 /* MEAL STATUS */
 .meal-expand-row.missed .meal-expand-name{color:var(--red);text-decoration:line-through;}
 .meal-expand-row.missed .meal-expand-kcal{color:var(--red);text-decoration:line-through;}
@@ -368,6 +386,10 @@ body.auth-mode{overflow:auto;}
   <button id="nav-schedule" onclick="showTab('schedule')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     Schedule
+  </button>
+  <button id="nav-settings" onclick="showTab('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
   </button>
 </nav>
 
@@ -705,8 +727,10 @@ function calcStats(){
     else if(st==="missed"){mealsMissed++;}
     else{mealsRemaining++;kcalRemaining+=m.kcal;}
   });
-  var suppsDone=Object.values(d.supps).filter(Boolean).length;
-  var pepsDone=Object.values(d.peptides).filter(Boolean).length;
+  var activeSupps=getActiveSupps();
+  var activePeps=getActivePeptides();
+  var suppsDone=activeSupps.filter(function(s){return d.supps[s.id];}).length;
+  var pepsDone=activePeps.filter(function(p){return d.peptides[p.id];}).length;
   var amEx=TRAINING[DOW]?TRAINING[DOW].am.length:0;
   var pmEx=TRAINING[DOW]?TRAINING[DOW].pm.length:0;
   var totalEx=amEx+pmEx;
@@ -720,10 +744,10 @@ function calcStats(){
     baseTarget:baseTarget,
     trainAdj:trainAdj,
     mealPct:(mealsDone/todayMeals.length)*100,
-    suppPct:(suppsDone/SUPPS.length)*100,
-    pepPct:(pepsDone/PEPTIDES.length)*100,
+    suppPct:activeSupps.length>0?(suppsDone/activeSupps.length)*100:100,
+    pepPct:activePeps.length>0?(pepsDone/activePeps.length)*100:100,
     trainPct:totalEx>0?(trainDone/totalEx)*100:0,
-    mealsDone:mealsDone,suppsDone:suppsDone,pepsDone:pepsDone,trainDone:trainDone,totalEx:totalEx,
+    mealsDone:mealsDone,suppsDone:suppsDone,pepsDone:pepsDone,suppsTotal:activeSupps.length,pepsTotal:activePeps.length,trainDone:trainDone,totalEx:totalEx,
     mealsMissed:mealsMissed,mealsRemaining:mealsRemaining,kcalRemaining:kcalRemaining,totalMeals:todayMeals.length,
     muscleMass:(STATE.currentWeight*(1-STATE.currentBF/100)).toFixed(1),
     fatMass:(STATE.currentWeight*STATE.currentBF/100).toFixed(1),
@@ -829,8 +853,8 @@ function renderToday(){
   </div>
 
   <div class="card blue">
-    <div class="card-label">Supplements - ${s.suppsDone}/${SUPPS.length}</div>
-    ${SUPPS.map(s=>{
+    <div class="card-label">Supplements - ${s.suppsDone}/${s.suppsTotal}</div>
+    ${getActiveSupps().map(s=>{
       const done=STATE.days[today].supps[s.id];
       return`<div class="check-row${done?" done":""}" onclick="toggle('supps','${s.id}')">
         <div class="checkbox${done?" checked":""}">${done?CHECK_SVG:""}</div>
@@ -841,8 +865,8 @@ function renderToday(){
   </div>
 
   <div class="card purple">
-    <div class="card-label">Peptides - ${s.pepsDone}/${PEPTIDES.length}</div>
-    ${PEPTIDES.map(p=>{
+    <div class="card-label">Peptides - ${s.pepsDone}/${s.pepsTotal}</div>
+    ${getActivePeptides().map(p=>{
       const done=STATE.days[today].peptides[p.id];
       return`<div class="check-row${done?" done":""}" onclick="toggle('peptides','${p.id}')">
         <div class="checkbox${done?" checked":""}">${done?CHECK_SVG:""}</div>
@@ -2361,6 +2385,118 @@ function renderMonthCalendar(){
   return html;
 }
 
+// --- SETTINGS ----------------------------------------------------------------
+function getActiveSupps(){return SUPPS.filter(function(s){return s.active!==false;});}
+function getActivePeptides(){return PEPTIDES.filter(function(p){return p.active!==false;});}
+
+function renderSettings(){
+  setHeader("SETTINGS","SUPPLEMENTS & PEPTIDES","Manage your daily checklist");
+  var acc=currentAccount();
+  var html='<div class="section">';
+
+  // Supplements
+  html+='<div class="card blue"><div class="card-label">Supplements</div>';
+  SUPPS.forEach(function(s,i){
+    var on=s.active!==false;
+    html+='<div class="settings-row">'
+      +'<div class="settings-toggle'+(on?" on":"")+'" onclick="toggleSuppActive('+i+')">'
+        +'<div class="settings-toggle-dot"></div>'
+      +'</div>'
+      +'<div class="settings-item-info">'
+        +'<span class="settings-item-name">'+escHtml(s.name)+'</span>'
+        +'<span class="settings-item-dose">'+escHtml(s.dose||"")+'</span>'
+      +'</div>'
+      +'<span class="supp-tag '+s.tc+'">'+escHtml(s.tag||"")+'</span>'
+      +'<button class="settings-del" onclick="removeSuppItem('+i+')" title="Remove">&times;</button>'
+    +'</div>';
+  });
+  html+='<div class="settings-add-row" id="settings-add-supp">'
+    +'<input type="text" id="add-supp-name" placeholder="Name" class="settings-add-input">'
+    +'<input type="text" id="add-supp-dose" placeholder="Dose" class="settings-add-input">'
+    +'<select id="add-supp-tag" class="settings-add-select">'
+      +SUPP_TAGS.map(function(t){return'<option value="'+t.v+'">'+t.v+'</option>';}).join('')
+    +'</select>'
+    +'<button class="settings-add-btn" onclick="addSuppItem()">+</button>'
+  +'</div>';
+  html+='</div>';
+
+  // Peptides
+  html+='<div class="card purple"><div class="card-label">Peptides</div>';
+  PEPTIDES.forEach(function(p,i){
+    var on=p.active!==false;
+    html+='<div class="settings-row">'
+      +'<div class="settings-toggle'+(on?" on":"")+'" onclick="togglePepActive('+i+')">'
+        +'<div class="settings-toggle-dot"></div>'
+      +'</div>'
+      +'<div class="settings-item-info">'
+        +'<span class="settings-item-name">'+escHtml(p.name)+'</span>'
+        +'<span class="settings-item-dose">'+escHtml(p.dose||"")+'</span>'
+      +'</div>'
+      +'<span class="supp-tag '+p.tc+'">'+escHtml(p.tag||"")+'</span>'
+      +'<button class="settings-del" onclick="removePepItem('+i+')" title="Remove">&times;</button>'
+    +'</div>';
+  });
+  html+='<div class="settings-add-row" id="settings-add-pep">'
+    +'<input type="text" id="add-pep-name" placeholder="Name" class="settings-add-input">'
+    +'<input type="text" id="add-pep-dose" placeholder="Dose" class="settings-add-input">'
+    +'<select id="add-pep-tag" class="settings-add-select">'
+      +SUPP_TAGS.map(function(t){return'<option value="'+t.v+'">'+t.v+'</option>';}).join('')
+    +'</select>'
+    +'<button class="settings-add-btn" onclick="addPepItem()">+</button>'
+  +'</div>';
+  html+='</div>';
+
+  // Profile info
+  html+='<div class="card grey"><div class="card-label">Profile</div>'
+    +'<div class="settings-row"><span class="settings-item-name">'+(acc?escHtml(acc.name):"Unknown")+'</span></div>'
+    +'<div style="margin-top:8px"><button class="meal-action reset-btn" onclick="logout()">Switch profile / sign out</button></div>'
+  +'</div>';
+
+  html+='</div>';
+  document.getElementById("app").innerHTML=html;
+}
+
+function saveSuppsConfig(){
+  if(!STATE.config)STATE.config={};
+  STATE.config.supps=SUPPS.map(function(s){return{id:s.id,name:s.name,dose:s.dose,tag:s.tag,tc:s.tc,active:s.active!==false};});
+  STATE.config.peptides=PEPTIDES.map(function(p){return{id:p.id,name:p.name,dose:p.dose,tag:p.tag,tc:p.tc,active:p.active!==false};});
+  saveStore();
+}
+function toggleSuppActive(i){
+  SUPPS[i].active=SUPPS[i].active===false?true:false;
+  saveSuppsConfig();renderSettings();
+}
+function togglePepActive(i){
+  PEPTIDES[i].active=PEPTIDES[i].active===false?true:false;
+  saveSuppsConfig();renderSettings();
+}
+function removeSuppItem(i){
+  SUPPS.splice(i,1);
+  saveSuppsConfig();renderSettings();
+}
+function removePepItem(i){
+  PEPTIDES.splice(i,1);
+  saveSuppsConfig();renderSettings();
+}
+function addSuppItem(){
+  var name=(document.getElementById("add-supp-name")||{}).value||"";
+  var dose=(document.getElementById("add-supp-dose")||{}).value||"";
+  var tag=(document.getElementById("add-supp-tag")||{}).value||"Morning";
+  if(!name.trim())return;
+  var id="s_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  SUPPS.push({id:id,name:name.trim(),dose:dose.trim(),tag:tag,tc:tagClassFor(tag),active:true});
+  saveSuppsConfig();renderSettings();
+}
+function addPepItem(){
+  var name=(document.getElementById("add-pep-name")||{}).value||"";
+  var dose=(document.getElementById("add-pep-dose")||{}).value||"";
+  var tag=(document.getElementById("add-pep-tag")||{}).value||"Morning";
+  if(!name.trim())return;
+  var id="p_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  PEPTIDES.push({id:id,name:name.trim(),dose:dose.trim(),tag:tag,tc:tagClassFor(tag),active:true});
+  saveSuppsConfig();renderSettings();
+}
+
 function render(){
   if(currentTab==="today")renderToday();
   else if(currentTab==="food")renderFood();
@@ -2368,6 +2504,7 @@ function render(){
   else if(currentTab==="supps")renderSupps();
   else if(currentTab==="body")renderBody();
   else if(currentTab==="schedule")renderSchedule();
+  else if(currentTab==="settings")renderSettings();
   else if(currentTab==="missed")renderMissedTab();
 }
 
