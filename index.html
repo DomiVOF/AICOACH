@@ -1164,74 +1164,92 @@ function renderMuscleMap(){
 }
 
 
+var trainViewDay=null;
 function renderTrain(){
+  var vd=trainViewDay||DOW;
+  var isToday=vd===DOW;
   var s=calcStats();
-  setHeader("TRAINING",DOW+" - "+DAY_FOCUS[DOW],s.trainDone+"/"+s.totalEx+" done");
+  var vdFocus=DAY_FOCUS[vd]||TRAINING[vd]&&TRAINING[vd].focus||"Rest";
+  setHeader("TRAINING",vd+" - "+vdFocus,isToday?(s.trainDone+"/"+s.totalEx+" done"):"Preview");
   var html="<div class=\"section\">";
   html+="<div class=\"day-pills\">";
-  DAYS.forEach(function(d){html+="<div class=\"day-pill"+(d===DOW?" today":"")+"\">"+d+"</div>";});
+  DAYS.forEach(function(d){html+="<div class=\"day-pill"+(d===vd?" today":"")+"\" onclick=\"trainViewDay='"+d+"';renderTrain()\">"+d+"</div>";});
   html+="</div>";
-  // progress bar
-  html+="<div class=\"card\" style=\"margin-bottom:12px;\">";
-  html+="<div class=\"card-label\">"+DAY_FOCUS[DOW]+"</div>";
-  html+="<div style=\"display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px;\">";
-  html+="<span>"+s.trainDone+" / "+s.totalEx+" done</span><span style=\"color:var(--accent)\">"+Math.round(s.trainPct)+"%</span></div>";
-  html+="<div class=\"progress-bar\"><div class=\"progress-fill red\" style=\"width:"+s.trainPct+"%\"></div></div>";
-  html+="</div>";
+  if(isToday){
+    html+="<div class=\"card\" style=\"margin-bottom:12px;\">";
+    html+="<div class=\"card-label\">"+vdFocus+"</div>";
+    html+="<div style=\"display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px;\">";
+    html+="<span>"+s.trainDone+" / "+s.totalEx+" done</span><span style=\"color:var(--accent)\">"+Math.round(s.trainPct)+"%</span></div>";
+    html+="<div class=\"progress-bar\"><div class=\"progress-fill red\" style=\"width:"+s.trainPct+"%\"></div></div>";
+    html+="</div>";
+  } else {
+    html+="<div class=\"card\" style=\"margin-bottom:12px;\">";
+    html+="<div class=\"card-label\">"+vdFocus+"</div>";
+    var totalEx=(TRAINING[vd]?TRAINING[vd].am.length:0)+(TRAINING[vd]?TRAINING[vd].pm.length:0);
+    html+="<div style=\"font-size:12px;color:var(--muted);\">"+totalEx+" exercises planned</div>";
+    html+="</div>";
+  }
   // muscle map moved to Graphs tab only
 
   function renderExerciseCard(ex, session, i){
     if(!ex.weighted){
+      if(!isToday){
+        return"<div class=\"check-row\"><div class=\"checkbox\"><\/div><span class=\"check-label\">"+ex.n+"<\/span><span class=\"check-right\">"+(ex.s||"")+"<\/span><\/div>";
+      }
       var done=STATE.days[today].training[session]&&STATE.days[today].training[session][i];
       return"<div class=\"check-row"+(done?" done":"")+"\"><div class=\"checkbox"+(done?" checked":"")+"\">"+( done?CHECK_SVG:"")+"<\/div><span class=\"check-label\">"+ex.n+"<\/span><span class=\"check-right\">"+(ex.s||"")+"<\/span><\/div>";
     }
-    var exData=getExData(DOW,session,i);
+    var exData=getExData(vd,session,i);
     var suggested=exData.weight||0;
     var warmupWeight=suggested?Math.round(suggested*0.5*2)/2:0;
-    var setsDone=getSetsDone(DOW,session,i);
-    var allWorkingDone=true;
-    for(var si=1;si<=ex.sets;si++){if(!setsDone[si])allWorkingDone=false;}
     var html2="<div class=\"ex-card\">";
     html2+="<div class=\"ex-header\">";
     html2+="<div><div class=\"ex-name\">"+ex.n+"<\/div><div style=\"font-size:11px;color:var(--muted);margin-top:2px;\">"+ex.sets+" sets x "+ex.reps+" reps<\/div><\/div>";
     html2+="<div class=\"ex-meta\">";
-    if(exData.progressed)html2+="<span style=\"font-family:DM Mono,monospace;font-size:9px;color:#c8f135;\">PROGRESSED<\/span>";
+    if(isToday&&exData.progressed)html2+="<span style=\"font-family:DM Mono,monospace;font-size:9px;color:#c8f135;\">PROGRESSED<\/span>";
     html2+="<span class=\"ex-muscle\">"+ex.muscle.replace("_"," ")+"<\/span><\/div><\/div>";
-    html2+="<div class=\"ex-sets-area\">";
-    // warm-up set
-    html2+="<div class=\"set-row\">";
-    html2+="<span class=\"set-num warmup\">WARM</span>";
-    html2+="<span class=\"set-reps\">x10</span>";
-    html2+="<input class=\"set-weight-input warmup\" type=\"number\" placeholder=\""+(warmupWeight||"kg")+"\" value=\""+(warmupWeight||"")+"\""+" oninput=\"this.dataset.v=this.value\">";
-    html2+="<span class=\"set-suggest\">50% of working</span>";
-    html2+="<\/div>";
-    // working sets
-    for(var si=1;si<=ex.sets;si++){
-      var isDone=setsDone[si]||false;
-      var isFirst=!exData.weight;
+    if(isToday){
+      var setsDone=getSetsDone(vd,session,i);
+      var allWorkingDone=true;
+      for(var si=1;si<=ex.sets;si++){if(!setsDone[si])allWorkingDone=false;}
+      html2+="<div class=\"ex-sets-area\">";
       html2+="<div class=\"set-row\">";
-      html2+="<span class=\"set-num\">SET "+si+"<\/span>";
-      html2+="<span class=\"set-reps\">x"+ex.reps+"<\/span>";
-      html2+="<input class=\"set-weight-input\" id=\"w_"+DOW+"_"+session+"_"+i+"_"+si+"\" type=\"number\" placeholder=\""+(suggested||"kg")+"\" value=\""+( suggested||"")+"\""+" onchange=\"updateSetWeight('"+DOW+"','"+session+"',"+i+",this.value)\">";
-      html2+="<span class=\"set-suggest"+(exData.progressed?" changed":"")+"\">"+( suggested?(suggested+"kg"):"set weight")+"<\/span>";
-      html2+="<div class=\"set-done-btn"+(isDone?" done":" ")+"\">"+CHECK_SVG+"<\/div>";
+      html2+="<span class=\"set-num warmup\">WARM</span>";
+      html2+="<span class=\"set-reps\">x10</span>";
+      html2+="<input class=\"set-weight-input warmup\" type=\"number\" placeholder=\""+(warmupWeight||"kg")+"\" value=\""+(warmupWeight||"")+"\""+" oninput=\"this.dataset.v=this.value\">";
+      html2+="<span class=\"set-suggest\">50% of working</span>";
       html2+="<\/div>";
-    }
-    html2+="<\/div>";
-    if(allWorkingDone){
-      html2+="<div class=\"ex-footer progressed\">All sets done - next: "+(suggested+2.5)+"kg if 2x successful<\/div>";
+      for(var si=1;si<=ex.sets;si++){
+        var isDone=setsDone[si]||false;
+        html2+="<div class=\"set-row\">";
+        html2+="<span class=\"set-num\">SET "+si+"<\/span>";
+        html2+="<span class=\"set-reps\">x"+ex.reps+"<\/span>";
+        html2+="<input class=\"set-weight-input\" id=\"w_"+vd+"_"+session+"_"+i+"_"+si+"\" type=\"number\" placeholder=\""+(suggested||"kg")+"\" value=\""+( suggested||"")+"\""+" onchange=\"updateSetWeight('"+vd+"','"+session+"',"+i+",this.value)\">";
+        html2+="<span class=\"set-suggest"+(exData.progressed?" changed":"")+"\">"+( suggested?(suggested+"kg"):"set weight")+"<\/span>";
+        html2+="<div class=\"set-done-btn"+(isDone?" done":" ")+"\">"+CHECK_SVG+"<\/div>";
+        html2+="<\/div>";
+      }
+      html2+="<\/div>";
+      if(allWorkingDone){
+        html2+="<div class=\"ex-footer progressed\">All sets done - next: "+(suggested+2.5)+"kg if 2x successful<\/div>";
+      }
+    } else {
+      html2+="<div class=\"ex-sets-area\">";
+      html2+="<div style=\"padding:4px 0;font-size:12px;color:var(--muted);\">"+ex.sets+" sets x "+ex.reps+" reps"+(suggested?" &mdash; last: <span style=\"color:var(--accent)\">"+suggested+"kg</span>":"")+"<\/div>";
+      html2+="<\/div>";
     }
     html2+="<\/div>";
     return html2;
   }
 
-  if(DOW!=="SUN"&&TRAINING[DOW].am.length>0){
+  var vdTraining=TRAINING[vd]||{am:[],pm:[]};
+  if(vd!=="SUN"&&vdTraining.am&&vdTraining.am.length>0){
     html+="<div class=\"card blue\"><div class=\"card-label\">AM - Structural<\/div>";
-    TRAINING[DOW].am.forEach(function(ex,i){html+=renderExerciseCard(ex,"am",i);});
+    vdTraining.am.forEach(function(ex,i){html+=renderExerciseCard(ex,"am",i);});
     html+="<\/div>";
   }
-  html+="<div class=\"card red\"><div class=\"card-label\">"+(DOW==="SUN"?"Recovery":"PM - Heavy Compound")+"<\/div>";
-  (TRAINING[DOW]?TRAINING[DOW].pm:[]).forEach(function(ex,i){html+=renderExerciseCard(ex,"pm",i);});
+  html+="<div class=\"card red\"><div class=\"card-label\">"+(vd==="SUN"?"Recovery":"PM - Heavy Compound")+"<\/div>";
+  (vdTraining.pm||[]).forEach(function(ex,i){html+=renderExerciseCard(ex,"pm",i);});
   html+="<\/div><\/div>";
   document.getElementById("app").innerHTML=html;
 
