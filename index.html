@@ -1261,7 +1261,7 @@ function renderTrain(){
     html2+="<div class=\"ex-header\">";
     html2+="<div><div class=\"ex-name\">"+ex.n+"<\/div><div style=\"font-size:11px;color:var(--muted);margin-top:2px;\">"+ex.sets+" sets x "+ex.reps+" reps<\/div><\/div>";
     html2+="<div class=\"ex-meta\">";
-    if(isToday&&exData.progressed)html2+="<span style=\"font-family:DM Mono,monospace;font-size:9px;color:#c8f135;\">PROGRESSED<\/span>";
+    if(exData.progressed)html2+="<span style=\"font-family:DM Mono,monospace;font-size:9px;color:#c8f135;\">PROGRESSED<\/span>";
     html2+="<span class=\"ex-muscle\">"+ex.muscle.replace("_"," ")+"<\/span><\/div><\/div>";
     if(isToday){
       var setsDone=getSetsDone(vd,session,i);
@@ -1290,8 +1290,23 @@ function renderTrain(){
       }
     } else {
       html2+="<div class=\"ex-sets-area\">";
-      html2+="<div style=\"padding:4px 0;font-size:12px;color:var(--muted);\">"+ex.sets+" sets x "+ex.reps+" reps"+(suggested?" &mdash; last: <span style=\"color:var(--accent)\">"+suggested+"kg</span>":"")+"<\/div>";
-      html2+="<\/div>";
+      html2+="<div class=\"set-row\">";
+      html2+="<span class=\"set-num\" style=\"color:var(--accent)\">TARGET</span>";
+      html2+="<span class=\"set-reps\">"+ex.sets+"x"+ex.reps+"</span>";
+      html2+="<input class=\"set-weight-input\" type=\"number\" placeholder=\""+(suggested||"kg")+"\" value=\""+(suggested||"")+"\" onchange=\"updateSetWeight('"+vd+"','"+session+"',"+i+",this.value)\">";
+      html2+="<span class=\"set-suggest\">"+(suggested?(suggested+"kg"):"set weight")+"</span>";
+      html2+="</div>";
+      if(warmupWeight){
+        html2+="<div style=\"padding:2px 0;font-size:11px;color:var(--muted);font-family:DM Mono,monospace;\">Warmup: "+warmupWeight+"kg (50%)</div>";
+      }
+      if(exData.progressed){
+        html2+="<div class=\"ex-footer progressed\">Weight bumped to "+suggested+"kg after 2 consecutive successes</div>";
+      }
+      if(exData.history&&exData.history.length>0){
+        var last=exData.history[exData.history.length-1];
+        html2+="<div style=\"padding:4px 0;font-size:11px;color:var(--muted);\">Last: "+last.weight+"kg on "+last.date+(last.completed?" <span style=\"color:var(--accent)\">&#10003;</span>":" <span style=\"color:var(--red)\">&#10007;</span>")+"</div>";
+      }
+      html2+="</div>";
     }
     html2+="<\/div>";
     return html2;
