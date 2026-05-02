@@ -341,6 +341,21 @@ body.auth-mode{overflow:auto;}
 .settings-ai-wizard .phase-row{flex-wrap:wrap;}
 .settings-ai-wizard .phase-pill{min-width:auto;flex:0 1 auto;padding:8px 12px;font-size:10px;}
 
+/* TRAIN CALENDAR */
+.train-cal{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:10px;padding:12px 10px;margin-bottom:12px;}
+.train-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.train-cal-month{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--white);}
+.train-cal-nav{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:16px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.train-cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.train-cal-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.train-cal-day:active{transform:scale(.95);}
+.train-cal-day.selected{border-color:var(--accent);background:rgba(200,241,53,.08);}
+.train-cal-day.today .train-cal-date{color:var(--accent);font-weight:700;}
+.train-cal-day.rest{opacity:.45;}
+.train-cal-dow{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.train-cal-date{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--white);line-height:1;}
+.train-cal-focus{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:.5px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+
 /* MEAL STATUS */
 .meal-expand-row.missed .meal-expand-name{color:var(--red);text-decoration:line-through;}
 .meal-expand-row.missed .meal-expand-kcal{color:var(--red);text-decoration:line-through;}
@@ -1165,6 +1180,48 @@ function renderMuscleMap(){
 
 
 var trainViewDay=null;
+var trainWeekOffset=0;
+function getTrainWeekDates(offset){
+  var now=new Date();
+  var dayOfWeek=(now.getDay()+6)%7;
+  var monday=new Date(now);
+  monday.setDate(now.getDate()-dayOfWeek+(offset*7));
+  var week=[];
+  for(var i=0;i<7;i++){
+    var d=new Date(monday);
+    d.setDate(monday.getDate()+i);
+    week.push({date:d,key:d.toISOString().slice(0,10),dow:DAYS[i]});
+  }
+  return week;
+}
+function renderTrainCalendar(vd){
+  var week=getTrainWeekDates(trainWeekOffset);
+  var todayStr=todayKey();
+  var monthLabel=week[0].date.toLocaleDateString("en",{month:"short"});
+  var monthLabel2=week[6].date.toLocaleDateString("en",{month:"short"});
+  var weekLabel=monthLabel===monthLabel2?week[0].date.toLocaleDateString("en",{month:"long",year:"numeric"}):monthLabel+" - "+monthLabel2+" "+week[6].date.getFullYear();
+  var html="<div class=\"train-cal\">";
+  html+="<div class=\"train-cal-header\">";
+  html+="<button class=\"train-cal-nav\" onclick=\"trainWeekOffset--;renderTrain()\">&lsaquo;</button>";
+  html+="<span class=\"train-cal-month\">"+weekLabel.toUpperCase()+"</span>";
+  html+="<button class=\"train-cal-nav\" onclick=\"trainWeekOffset++;renderTrain()\">&rsaquo;</button>";
+  html+="</div>";
+  html+="<div class=\"train-cal-week\">";
+  week.forEach(function(w){
+    var isSel=w.dow===vd;
+    var isTod=w.key===todayStr;
+    var focus=TRAINING[w.dow]?TRAINING[w.dow].focus:"Rest";
+    var totalEx=(TRAINING[w.dow]?(TRAINING[w.dow].am||[]).length+(TRAINING[w.dow].pm||[]).length:0);
+    var isRest=totalEx===0||w.dow==="SUN";
+    html+="<div class=\"train-cal-day"+(isSel?" selected":"")+(isTod?" today":"")+(isRest?" rest":"")+"\" onclick=\"trainViewDay='"+w.dow+"';renderTrain()\">";
+    html+="<span class=\"train-cal-dow\">"+w.dow+"</span>";
+    html+="<span class=\"train-cal-date\">"+w.date.getDate()+"</span>";
+    html+="<span class=\"train-cal-focus\">"+escHtml(focus)+"</span>";
+    html+="</div>";
+  });
+  html+="</div></div>";
+  return html;
+}
 function renderTrain(){
   var vd=trainViewDay||DOW;
   var isToday=vd===DOW;
@@ -1172,9 +1229,7 @@ function renderTrain(){
   var vdFocus=DAY_FOCUS[vd]||TRAINING[vd]&&TRAINING[vd].focus||"Rest";
   setHeader("TRAINING",vd+" - "+vdFocus,isToday?(s.trainDone+"/"+s.totalEx+" done"):"Preview");
   var html="<div class=\"section\">";
-  html+="<div class=\"day-pills\">";
-  DAYS.forEach(function(d){html+="<div class=\"day-pill"+(d===vd?" today":"")+"\" onclick=\"trainViewDay='"+d+"';renderTrain()\">"+d+"</div>";});
-  html+="</div>";
+  html+=renderTrainCalendar(vd);
   if(isToday){
     html+="<div class=\"card\" style=\"margin-bottom:12px;\">";
     html+="<div class=\"card-label\">"+vdFocus+"</div>";
